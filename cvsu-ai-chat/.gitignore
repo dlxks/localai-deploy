@@ -1,0 +1,15 @@
+node_modules/
+dist/
+*.vsix
+
+# Secrets — never commit. Each user keeps their own .env.
+.env
+.env.local
+
+# Stray files that don't belong to the extension (caveman hook lives elsewhere)
+caveman.js
+SETUP.md
+CLAUDE.md
+CLAUDE~1.JSO
+__wtest
+*.bak-*

@@ -1,0 +1,8 @@
+.env
+.env.backup
+.env.production
+
+# Ignore local repository and heavy model artifacts
+# cvsu-ai-chat/
+models/
+models/llama-cpp/

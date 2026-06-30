@@ -1,0 +1,220 @@
+{
+  "name": "localai-vscode-chat",
+  "displayName": "CvSU-AI VSCode Chat",
+  "description": "Copilot-style AI chat and coding agent for the LocalAI (LocalAI) server.",
+  "version": "1.0.0-beta",
+  "publisher": "localai-community",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Cavite-State-University-Official/localai-vscode-chat.git"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Machine Learning",
+    "Chat",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cvsuai.openChat",
+        "title": "CvSU-AI VSCode Chat: Open Chat",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "cvsuai.chatSelection",
+        "title": "CvSU-AI VSCode Chat: Chat with Selection"
+      },
+      {
+        "command": "cvsuai.signIn",
+        "title": "CvSU-AI VSCode Chat: Sign In"
+      },
+      {
+        "command": "cvsuai.signOut",
+        "title": "CvSU-AI VSCode Chat: Sign Out"
+      },
+      {
+        "command": "cvsuai.toggleTarget",
+        "title": "CvSU-AI VSCode Chat: Switch Server / Local"
+      },
+      {
+        "command": "cvsuai.indexWorkspace",
+        "title": "CvSU-AI VSCode Chat: Index Workspace for RAG"
+      },
+      {
+        "command": "cvsuai.showRAGStats",
+        "title": "CvSU-AI VSCode Chat: Show RAG Index Stats"
+      },
+      {
+        "command": "cvsuai.clearRAGIndex",
+        "title": "CvSU-AI VSCode Chat: Clear RAG Index"
+      },
+      {
+        "command": "cvsuai.newChat",
+        "title": "CvSU-AI VSCode Chat: New Chat",
+        "icon": "$(add)"
+      },
+      {
+        "command": "cvsuai.customConfig",
+        "title": "CvSU-AI VSCode Chat: Set Up Custom Agents & Skills (.cvsuai)"
+      },
+      {
+        "command": "cvsuai.compactChat",
+        "title": "CvSU-AI VSCode Chat: Compact Chat (summarize older messages)"
+      },
+      {
+        "command": "cvsuai.openSettings",
+        "title": "CvSU-AI VSCode Chat: Settings",
+        "icon": "$(settings-gear)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "cvsuai-container",
+          "title": "CvSU-AI VSCode Chat",
+          "icon": "media/activity-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "cvsuai-container": [
+        {
+          "id": "cvsuai.chatView",
+          "name": "Chat",
+          "type": "webview"
+        }
+      ]
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "cvsuai.chatSelection",
+          "when": "editorHasSelection",
+          "group": "navigation"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "cvsuai.newChat",
+          "when": "view == cvsuai.chatView",
+          "group": "navigation"
+        },
+        {
+          "command": "cvsuai.openSettings",
+          "when": "view == cvsuai.chatView",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "CvSU-AI VSCode Chat",
+      "properties": {
+        "localai.baseUrl": {
+          "type": "string",
+          "default": "http://ai.cvsu.edu.ph",
+          "description": "Base URL of the LocalAI server. OpenAI-compatible routes live under <baseUrl>/v1."
+        },
+        "localai.serverUrl": {
+          "type": "string",
+          "default": "http://ai.cvsu.edu.ph",
+          "description": "The default 'Server' URL when toggling the target."
+        },
+        "localai.localUrl": {
+          "type": "string",
+          "default": "http://localhost:8081",
+          "description": "The default 'Local' URL when toggling the target."
+        },
+        "localai.model": {
+          "type": "string",
+          "default": "qwen2.5-coder-7b-instruct-q8_0.gguf",
+          "description": "The AI model to use for chat and completion."
+        },
+        "localai.contextSize": {
+          "type": "integer",
+          "default": 4096,
+          "minimum": 1024,
+          "maximum": 131072,
+          "description": "The model's context window in tokens. Must match the server/model's loaded context_size. Default 4096; raise to 8192+ only if your model is loaded with a bigger window (the LOCAL instance is configured for 8192)."
+        },
+        "localai.contextTokenBudget": {
+          "type": "integer",
+          "default": 2500,
+          "minimum": 500,
+          "maximum": 100000,
+          "description": "Max tokens of file/workspace context attached per message. Keep below the model's context window (localai.contextSize). Raise it if you increase the context window."
+        },
+        "localai.maxTokens": {
+          "type": "integer",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 8192,
+          "description": "Cap the model's reply length (max_tokens). Generation time scales with reply length, so a smaller cap = a faster reply. 0 means no cap (server decides). Try 512–1024 for snappier answers."
+        },
+        "localai.autoCompact": {
+          "type": "boolean",
+          "default": true,
+          "description": "When a conversation nears the model's context window, automatically summarize the older messages into a compact summary and continue — keeping context while freeing tokens. Disable to fall back to a simple warning."
+        },
+        "localai.warnNearContextLimit": {
+          "type": "boolean",
+          "default": true,
+          "description": "If auto-compact is off: show a one-time heads-up when a conversation nears the model's context window (the chat stays open; oldest messages are trimmed from requests automatically)."
+        },
+        "localai.agent.maxIterations": {
+          "type": "integer",
+          "default": 8,
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Maximum tool-call steps the agent may take before stopping."
+        },
+        "localai.autocomplete.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable inline autocomplete (like Copilot). Triggers automatically as you type."
+        },
+        "localai.agent.autoApproveWrites": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, the agent writes files without asking for confirmation. Use with caution."
+        },
+        "localai.rag.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable codebase semantic search (RAG). Index with 'CvSU-AI VSCode Chat: Index Workspace for RAG', then ask with /codebase."
+        },
+        "localai.rag.topK": {
+          "type": "integer",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 20,
+          "description": "How many code chunks to retrieve and attach per /codebase question."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
+    "watch": "npm run build -- --sourcemap --watch",
+    "compile": "tsc -p ./ --noEmit",
+    "package": "vsce package",
+    "release:patch": "npm version patch && git push --follow-tags",
+    "release:minor": "npm version minor && git push --follow-tags",
+    "release:major": "npm version major && git push --follow-tags"
+  },
+  "devDependencies": {
+    "@types/node": "^20.x",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.2.0",
+    "esbuild": "^0.28.1",
+    "typescript": "^5.6.0"
+  }
+}

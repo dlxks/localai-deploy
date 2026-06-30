@@ -1,0 +1,47 @@
+name: Release VSIX
+
+# Builds the extension and publishes the .vsix to a GitHub Release
+# whenever you push a version tag like v0.5.1.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write # needed to create the Release and upload the asset
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run compile
+
+      - name: Package VSIX
+        run: npm run package
+
+      - name: Verify no secrets in package
+        run: |
+          if unzip -l ./*.vsix | grep -i "\.env"; then
+            echo "::error::.env found inside the .vsix — aborting."
+            exit 1
+          fi
+          echo "OK: no .env in package"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "*.vsix"
+          generate_release_notes: true

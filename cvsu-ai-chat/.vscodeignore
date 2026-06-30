@@ -1,0 +1,32 @@
+# Build inputs / tooling (sources are bundled into dist/extension.js)
+.vscode/**
+src/**
+node_modules/**
+tsconfig.json
+**/*.map
+**/*.ts
+
+# Secrets & local config — NEVER ship these
+.gitignore
+.env
+.env.local
+.env.example
+CLAUDE.md
+CLAUDE~*.JSO
+.claude/**
+
+# Dev hook script (not part of the extension runtime)
+caveman.js
+
+# Maintainer/dev docs — not useful inside the installed extension
+ADMIN-REQUEST.md
+INSTALL.md
+RELEASING.md
+SETUP.md
+
+# CI / repo config
+.github/**
+
+# Stray scratch artifacts
+__wtest
+**/*.vsix
