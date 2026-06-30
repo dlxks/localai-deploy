@@ -1,7 +1,11 @@
 services:
   localai:
     # Use the appropriate image for your hardware (e.g. latest-cpu, latest-gpu-nvidia, etc.)
-    image: localai/localai:latest
+    image: localai/localai:latest-gpu-nvidia-cuda-12
+    container_name: localai
+    restart: unless-stopped
+    gpus: all
+    shm_size: "2gb"
     ports:
       - "8081:8080"
     environment:
@@ -9,8 +13,12 @@ services:
       - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
       - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
       - LOCALAI_BASE_URL=${LOCALAI_BASE_URL:-http://localhost:8081}
-      
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
       # Other typical LocalAI configurations
       - MODELS_PATH=/build/models
+      - THREADS=10
+      - CONTEXT_SIZE=4096
     volumes:
       - ./models:/build/models
