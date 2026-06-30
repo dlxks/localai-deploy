@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { ChatPanel } from "./chatPanel";
-import { hasCredentials } from "./client";
+import { hasCredentials, listEmbeddingModels, getEmbeddingModel } from "./client";
 import { signIn, signOut, ensureCredentials } from "./auth";
 import { loadDevEnv } from "./env";
 import { trackActiveEditor } from "./context";
@@ -109,6 +109,7 @@ export async function activate(context: vscode.ExtensionContext) {
           { label: "$(key) Set Server API Key", description: "Set or change your Server API Key" },
           { label: "$(home) Set Local URL", description: "Configure the URL for your Local AI Server" },
           { label: "$(key) Set LocalDeploy API Key", description: "Set or change your Local API Key" },
+          { label: "$(symbol-string) Set Text-Embedding Model", description: "Choose an installed embedding model for RAG" },
           { label: "$(sign-in) Sign In", description: "Sign in with GitHub or API Key" },
           { label: "$(sign-out) Sign Out", description: "Sign out of CvSU-AI VSCode Chat" },
           { label: "$(gear) Advanced Settings", description: "Opens VSCode Settings for all options" },
@@ -144,6 +145,35 @@ export async function activate(context: vscode.ExtensionContext) {
         if (val !== undefined) {
            await context.secrets.store("localai.localApiKey", val.trim());
            vscode.window.showInformationMessage("LocalDeploy API key saved.");
+        }
+      } else if (choice?.label.includes("Set Text-Embedding Model")) {
+        try {
+          let models = await listEmbeddingModels(context.secrets);
+          const current = getEmbeddingModel();
+          if (current && !models.includes(current)) models = [current, ...models];
+          if (!models.length) {
+            vscode.window.showWarningMessage(
+              "CvSU-AI VSCode Chat: no installed text-embedding models found on this server."
+            );
+          } else {
+            const pick = await vscode.window.showQuickPick(
+              models.map((m) => ({
+                label: m,
+                description: m === current ? "current" : "",
+              })),
+              { placeHolder: `Select text-embedding model (current: ${current})` }
+            );
+            if (pick?.label) {
+              await vscode.workspace
+                .getConfiguration("localai")
+                .update("rag.embeddingModel", pick.label, vscode.ConfigurationTarget.Global);
+              vscode.window.showInformationMessage(`Text-embedding model set to: ${pick.label}`);
+            }
+          }
+        } catch (err: any) {
+          vscode.window.showErrorMessage(
+            `CvSU-AI VSCode Chat: failed to fetch embedding models (${err?.message ?? String(err)}).`
+          );
         }
       } else if (choice?.label.includes("Sign In")) {
         await signIn(context.secrets);

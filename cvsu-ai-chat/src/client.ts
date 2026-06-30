@@ -144,7 +144,65 @@ async function handleResponseError(res: Response, secrets: vscode.SecretStorage)
  * (they aren't loaded in embedding mode). Override via localai.rag.embeddingModel.
  */
 export function getEmbeddingModel(): string {
-  return "nomic-embed-text-v1.5";
+  const cfg = vscode.workspace.getConfiguration("localai");
+  const fromSettings = cfg.get<string>("rag.embeddingModel");
+  return fromSettings || "nomic-embed-text-v1.5";
+}
+
+function asStringArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((x) => (typeof x === "string" ? x : ""))
+    .filter(Boolean)
+    .map((s) => s.toLowerCase());
+}
+
+function inferModelId(row: any): string {
+  return String(row?.id ?? row?.name ?? row?.model ?? row?.model_id ?? "").trim();
+}
+
+function isEmbeddingRow(row: any): boolean {
+  if (!row || typeof row !== "object") return false;
+  if (row.embeddings === true || row.embedding === true) return true;
+  const cfg = row.config && typeof row.config === "object" ? row.config : undefined;
+  if (cfg?.embeddings === true || cfg?.embedding === true) return true;
+  const caps = asStringArray(row.capabilities).concat(asStringArray(row.usecases)).concat(asStringArray(row.known_usecases));
+  return caps.some((c) => c.includes("embed"));
+}
+
+/**
+ * List only installed models that support embeddings.
+ *
+ * Preferred source is /api/models because it exposes capability metadata.
+ * If unavailable on a given server build, falls back to /v1/models and keeps
+ * only IDs that look like embedding models.
+ */
+export async function listEmbeddingModels(secrets: vscode.SecretStorage): Promise<string[]> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/api/models`, {
+      headers: { ...(await authHeaders(secrets)), Origin: getBaseUrl() },
+    });
+    if (res.ok) {
+      const json = (await res.json()) as any;
+      const rows: any[] = Array.isArray(json)
+        ? json
+        : Array.isArray(json?.data)
+        ? json.data
+        : Array.isArray(json?.models)
+        ? json.models
+        : [];
+      const ids = rows
+        .filter((row) => isEmbeddingRow(row))
+        .map((row) => inferModelId(row))
+        .filter(Boolean);
+      return Array.from(new Set(ids)).sort();
+    }
+  } catch {
+    // Fall through to compatibility fallback.
+  }
+
+  const ids = await listModels(secrets);
+  return ids.filter((id) => /embed(ding)?/i.test(id));
 }
 
 /**

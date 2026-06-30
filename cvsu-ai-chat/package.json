@@ -196,6 +196,11 @@
           "minimum": 1,
           "maximum": 20,
           "description": "How many code chunks to retrieve and attach per /codebase question."
+        },
+        "localai.rag.embeddingModel": {
+          "type": "string",
+          "default": "nomic-embed-text-v1.5",
+          "description": "Text-embedding model used by RAG indexing/retrieval. Use the extension Settings command to pick from installed embedding-capable models."
         }
       }
     }
