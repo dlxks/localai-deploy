@@ -2,7 +2,8 @@ import * as vscode from "vscode";
 import { getBaseUrl, getApiKeySecretKey } from "./client";
 
 export function getAutocompleteModel(): string {
-  return "lfm2.b-1.2b-instruct";
+  const cfg = vscode.workspace.getConfiguration("localai");
+  return cfg.get<string>("autocomplete.model") || "lfm2.b-1.2b-instruct";
 }
 
 export function isAutocompleteEnabled(): boolean {

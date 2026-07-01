@@ -95,9 +95,15 @@ Every code block the assistant returns has an **Apply** and a **Copy** button.
 
 ### Inline Autocomplete
 The extension supports GitHub Copilot-style inline ghost-text autocomplete. As you type in the editor, the extension will silently ping your fast model in the background and suggest code completions that you can accept by pressing `Tab`.
-To enable it:
+To enable it via the UI:
 1. Click the **⚙️ Settings** button and select **Set Autocomplete Model** to choose your fastest/smallest model (e.g. `lfm2.b-1.2b-instruct`).
 2. Open **Advanced Settings** and enable the `localai.autocomplete.enabled` checkbox.
+
+Alternatively, you can configure it directly in your `settings.json`:
+```json
+"localai.autocomplete.enabled": true,
+"localai.autocomplete.model": "your-preferred-fast-model-name"
+```
 
 ### Slash commands
 Type `/` in the composer to open a command menu (↑/↓ to choose, Enter to pick).

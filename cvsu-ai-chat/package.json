@@ -202,6 +202,11 @@
           "default": false,
           "description": "Enable inline autocomplete (like Copilot). Triggers automatically as you type."
         },
+        "localai.autocomplete.model": {
+          "type": "string",
+          "default": "lfm2.b-1.2b-instruct",
+          "description": "Model used for inline autocomplete."
+        },
         "localai.agent.autoApproveWrites": {
           "type": "boolean",
           "default": false,
