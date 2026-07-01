@@ -963,12 +963,12 @@ export class ChatPanel implements vscode.WebviewViewProvider {
   <meta http-equiv="Content-Security-Policy" content="${csp}" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="${cssUri}" />
-  <title>CvSU-AI VSCode Chat</title>
+  <title>CvSUAI</title>
 </head>
 <body>
   <div id="app">
     <header id="topbar">
-      <div class="brand"><img class="brand-logo" src="${logoUri}" alt="LocalAI" /> CvSU-AI VSCode Chat</div>
+      <div class="brand"><img class="brand-logo" src="${logoUri}" alt="LocalAI" /> CvSUAI</div>
       <span class="topbar-actions">
         <button id="reload" class="ghost" title="Reload settings and models">↻</button>
         <button id="target-toggle" class="ghost target-chip" title="Switch between the server and your local GPU">AI: …</button>
@@ -986,7 +986,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     <div id="messages">
       <div id="empty">
         <img class="empty-logo" src="${logoUri}" alt="LocalAI logo" />
-        <h2>CvSU-AI VSCode Chat</h2>
+        <h2>CvSUAI</h2>
         <p>Ask a question, or type <code>/</code> for commands. Enable Agent mode to edit files.</p>
         <div id="signin-container" style="display:none; margin-top: 20px;">
           <button id="signin-btn" class="primary-btn" style="padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; background: var(--vscode-button-background); color: var(--vscode-button-foreground);">Sign In to LocalAI</button>
@@ -996,7 +996,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     <div id="composer">
       <div id="slash-menu" hidden></div>
       <div class="input-wrap">
-        <textarea id="input" rows="1" placeholder="Ask CvSU-AI VSCode Chat…  (type / for commands)"></textarea>
+        <textarea id="input" rows="1" placeholder="Ask CvSUAI…  (type / for commands)"></textarea>
         <button id="send" title="Send (Enter)" aria-label="Send">➤</button>
         <button id="stop" title="Stop" aria-label="Stop" style="display:none">■</button>
       </div>

@@ -1,6 +1,6 @@
 {
   "name": "localai-vscode-chat",
-  "displayName": "CvSU-AI VSCode Chat",
+  "displayName": "CvSU-AI",
   "description": "Copilot-style AI chat and coding agent for the LocalAI (LocalAI) server.",
   "version": "1.0.0-beta",
   "publisher": "localai-community",
@@ -73,13 +73,17 @@
         "command": "cvsuai.openSettings",
         "title": "CvSU-AI VSCode Chat: Settings",
         "icon": "$(settings-gear)"
+      },
+      {
+        "command": "cvsuai.editKeybinding",
+        "title": "CvSU-AI VSCode Chat: Edit Keyboard Shortcut"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
           "id": "cvsuai-container",
-          "title": "CvSU-AI VSCode Chat",
+          "title": "CvSUAI",
           "icon": "media/activity-icon.svg"
         }
       ]
@@ -112,8 +116,21 @@
           "when": "view == cvsuai.chatView",
           "group": "navigation"
         }
+      ],
+      "commandPalette": [
+        {
+          "command": "cvsuai.editKeybinding"
+        }
       ]
     },
+    "keybindings": [
+      {
+        "command": "cvsuai.openChat",
+        "key": "ctrl+shift+l",
+        "mac": "cmd+shift+l",
+        "when": "!inQuickOpen"
+      }
+    ],
     "configuration": {
       "title": "CvSU-AI VSCode Chat",
       "properties": {
@@ -206,6 +223,11 @@
           "type": "string",
           "default": "nomic-embed-text-v1.5",
           "description": "Text-embedding model used by RAG indexing/retrieval. Use the extension Settings command to pick from installed embedding-capable models."
+        },
+        "localai.openChatKeybinding": {
+          "type": "string",
+          "default": "ctrl+shift+l / cmd+shift+l",
+          "description": "Keyboard shortcut to open the CvSU-AI chat. Edit with 'CvSU-AI VSCode Chat: Edit Keyboard Shortcut' command or modify directly in keybindings.json (search for 'cvsuai.openChat')."
         }
       }
     }

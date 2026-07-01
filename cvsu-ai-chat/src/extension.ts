@@ -282,6 +282,13 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.window.showInformationMessage(
         "CvSU-AI VSCode Chat: created .cvsuai/ — add skills in skills/, agents in agents/, project rules in instructions.md. They appear as /commands."
       );
+    }),
+
+    vscode.commands.registerCommand("cvsuai.editKeybinding", async () => {
+      await vscode.commands.executeCommand("workbench.action.openGlobalKeybindingsFile");
+      vscode.window.showInformationMessage(
+        "Find 'cvsuai.openChat' to customize the keyboard shortcut. Default: Ctrl+Shift+L (Cmd+Shift+L on Mac)."
+      );
     })
   );
 }
