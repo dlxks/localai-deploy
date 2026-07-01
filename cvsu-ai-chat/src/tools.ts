@@ -1,9 +1,13 @@
 import * as vscode from "vscode";
+import { spawn } from "node:child_process";
+import { dirname } from "node:path";
 import { ToolDef } from "./client";
 
 export interface ToolContext {
   /** Ask the user to approve a mutating action. Returns true to proceed. */
   confirm: (summary: string, detail: string) => Promise<boolean>;
+  /** Optional live output callback for long-running tools (e.g. run_command). */
+  onToolProgress?: (chunk: string) => void;
   /** Workspace-relative path of the open file already embedded in this turn's
    *  context. read_file on this path is short-circuited (the model already has
    *  the contents) to avoid double-counting it against the context window. */
@@ -34,7 +38,7 @@ const MAX_OUTPUT = 20000; // cap tool output so we don't blow the context window
  * tiny context window.
  */
 export const EXCLUDE_GLOB =
-  "{**/node_modules/**,**/.git/**,**/.playwright-mcp/**,**/__pycache__/**," +
+  "{**/node_modules/**,**/vendor/**,**/.git/**,**/.playwright-mcp/**,**/__pycache__/**," +
   "**/dist/**,**/build/**,**/.venv/**,**/venv/**,**/*.log,**/.DS_Store," +
   "**/*.pyc,**/.pytest_cache/**,**/.mypy_cache/**,**/coverage/**}";
 
@@ -447,7 +451,8 @@ const appendToFile: AgentTool = {
     if (!addition) return "Error: 'content' is required.";
     let uri: vscode.Uri;
     try {
-      uri = await resolveExisting(rel);
+      // append_to_file should also support creating a new file when missing.
+      uri = await resolveForWrite(rel);
     } catch (e: any) {
       return `Error: ${e?.message ?? String(e)}`;
     }
@@ -472,6 +477,145 @@ const appendToFile: AgentTool = {
   },
 };
 
+const runCommand: AgentTool = {
+  mutating: true,
+  def: {
+    type: "function",
+    function: {
+      name: "run_command",
+      description:
+        "Run a shell command in the workspace (e.g., tests/build/lint). Returns exit code, stdout, and stderr. Requires user approval.",
+      parameters: {
+        type: "object",
+        properties: {
+          command: { type: "string", description: "Shell command to execute" },
+          cwd: {
+            type: "string",
+            description: "Optional workspace-relative directory to run in (defaults to workspace root)",
+          },
+          timeoutSec: {
+            type: "number",
+            description: "Optional timeout in seconds (default 120)",
+          },
+        },
+        required: ["command"],
+      },
+    },
+  },
+  async run(args, ctx) {
+    const command = String(args.command ?? "").trim();
+    const cwdArg = String(args.cwd ?? "").trim();
+    const timeoutSec = Number(args.timeoutSec ?? 120);
+
+    if (!command) return "Error: 'command' is required.";
+
+    let cwdUri = workspaceRoot();
+    if (cwdArg) {
+      try {
+        const resolved = await resolveExisting(cwdArg);
+        const st = await vscode.workspace.fs.stat(resolved);
+        cwdUri = st.type === vscode.FileType.Directory ? resolved : vscode.Uri.file(dirname(resolved.fsPath));
+      } catch (e: any) {
+        // Be permissive: bad cwd from model should not block command execution.
+        // Fall back to workspace root and report that fallback.
+        ctx.onToolProgress?.(
+          `[run_command] invalid cwd '${cwdArg}', falling back to workspace root.\n`
+        );
+        cwdUri = workspaceRoot();
+      }
+    }
+
+    const autopilot =
+      vscode.workspace.getConfiguration("localai").get<boolean>("autopilot") ?? false;
+    const autoApproveWrites =
+      vscode.workspace.getConfiguration("localai").get<boolean>("agent.autoApproveWrites") ?? false;
+
+    // In agent+autopilot flows we should not pause on command confirmations.
+    // Keep manual gate only when both autopilot and auto-approve are off.
+    if (!(autopilot || autoApproveWrites)) {
+      const ok = await ctx.confirm(
+        `Run command in ${cwdArg || "."}?`,
+        `The agent wants to run:\n\n${command}\n\nWorking directory: ${cwdArg || "."}`
+      );
+      if (!ok) return "User denied command execution.";
+    }
+
+    const cwdFsPath = cwdUri.fsPath;
+    const maxMs = Math.max(1, timeoutSec) * 1000;
+
+    return await new Promise<string>((resolve) => {
+      let stdout = "";
+      let stderr = "";
+      let timedOut = false;
+
+      const child = spawn(command, {
+        cwd: cwdFsPath,
+        shell: true,
+        windowsHide: true,
+      });
+
+      const timer = setTimeout(() => {
+        timedOut = true;
+        try {
+          child.kill();
+        } catch {
+          /* ignore */
+        }
+      }, maxMs);
+
+      child.stdout.on("data", (buf: Buffer) => {
+        const chunk = buf.toString("utf8");
+        stdout += chunk;
+        ctx.onToolProgress?.(chunk);
+      });
+
+      child.stderr.on("data", (buf: Buffer) => {
+        const chunk = buf.toString("utf8");
+        stderr += chunk;
+        ctx.onToolProgress?.(chunk);
+      });
+
+      child.on("error", (err) => {
+        clearTimeout(timer);
+        resolve(`Command failed to start: ${err.message}`);
+      });
+
+      child.on("close", (code) => {
+        clearTimeout(timer);
+        if (timedOut) {
+          resolve(
+            clamp(
+              `Command timed out after ${timeoutSec}s.\n` +
+                `STDOUT:\n${stdout.trim() || "(empty)"}\n\n` +
+                `STDERR:\n${stderr.trim() || "(empty)"}`
+            )
+          );
+          return;
+        }
+
+        if ((code ?? 0) === 0) {
+          resolve(
+            clamp(
+              `Exit code: 0\n` +
+                `STDOUT:\n${stdout.trim() || "(empty)"}\n\n` +
+                `STDERR:\n${stderr.trim() || "(empty)"}`
+            )
+          );
+          return;
+        }
+
+        resolve(
+          clamp(
+            `Command failed (exit ${code ?? "unknown"}).\n` +
+              `STDOUT:\n${stdout.trim() || "(empty)"}\n\n` +
+              `STDERR:\n${stderr.trim() || "(empty)"}`
+          )
+        );
+      });
+    });
+  },
+};
+
 /** Open a file in the editor (best-effort). */
 async function reveal(uri: vscode.Uri): Promise<void> {
   try {
@@ -482,7 +626,14 @@ async function reveal(uri: vscode.Uri): Promise<void> {
   }
 }
 
-export const TOOLS: AgentTool[] = [readFile, listFiles, searchText, writeFile, appendToFile];
+export const TOOLS: AgentTool[] = [
+  readFile,
+  listFiles,
+  searchText,
+  writeFile,
+  appendToFile,
+  runCommand,
+];
 
 export function toolDefs(): ToolDef[] {
   return TOOLS.map((t) => t.def);

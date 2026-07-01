@@ -41,7 +41,14 @@ Rules:
   contents are NOT already shown to you.
 
 Tools: read_file, list_files, search, write_file (overwrite-guarded),
-append_to_file. The user approves every write, so just make the call.`;
+append_to_file, run_command.
+
+Execution rule:
+- If user asks to run tests/build/lint/commands, call run_command directly.
+- Do NOT call list_files repeatedly. Use it at most once to discover paths, then act.
+- After reading target files, apply edits with write_file/append_to_file — do not stop at suggestions.
+
+The user approves every mutating action, so just make the call.`;
 
 export interface AgentEvents {
   /** Called as the model streams text for the current step. */
@@ -50,6 +57,7 @@ export interface AgentEvents {
   onStepStart: () => void;
   onAssistantText: (text: string) => void;
   onToolStart: (name: string, args: Record<string, unknown>) => void;
+  onToolProgress?: (name: string, chunk: string) => void;
   onToolResult: (name: string, result: string) => void;
   onStatus: (status: string) => void;
 }
@@ -103,6 +111,43 @@ export async function runAgent(
     );
 
     if (turn.toolCalls.length === 0) {
+      const syntheticCall = extractFallbackToolCall(turn.content, iter);
+      if (syntheticCall) {
+        const assistantTurn: ChatMessage = {
+          role: "assistant",
+          content: turn.content,
+          tool_calls: [
+            {
+              id: syntheticCall.id,
+              type: "function",
+              function: {
+                name: syntheticCall.name,
+                arguments: JSON.stringify(syntheticCall.arguments),
+              },
+            },
+          ],
+        };
+        messages.push(assistantTurn);
+        history.push(assistantTurn);
+
+        const tool = findTool(syntheticCall.name);
+        if (!tool) {
+          events.onStatus("");
+          events.onAssistantText(`Tool missing: ${syntheticCall.name}.`);
+          return;
+        }
+        const result = await executeTool(syntheticCall, events, toolCtx);
+        const toolTurn: ChatMessage = {
+          role: "tool",
+          tool_call_id: syntheticCall.id,
+          name: syntheticCall.name,
+          content: result,
+        };
+        messages.push(toolTurn);
+        history.push(toolTurn);
+        continue;
+      }
+
       // Final answer (already streamed via onToken; this finalizes the bubble).
       events.onStatus("");
       events.onAssistantText(turn.content || "");
@@ -220,7 +265,13 @@ async function executeTool(
     return msg;
   }
   try {
-    const result = await tool.run(call.arguments, toolCtx);
+    const scopedCtx: ToolContext = {
+      ...toolCtx,
+      onToolProgress: (chunk: string) => {
+        events.onToolProgress?.(call.name, chunk);
+      },
+    };
+    const result = await tool.run(call.arguments, scopedCtx);
     events.onToolResult(call.name, result);
     return result;
   } catch (err: any) {
@@ -228,4 +279,90 @@ async function executeTool(
     events.onToolResult(call.name, msg);
     return msg;
   }
+}
+
+function extractFallbackToolCall(content: string, iter: number): ToolCall | undefined {
+  if (!content) return undefined;
+
+  // Try to find JSON tool-call blocks with proper brace counting.
+  const cleaned = content.replace(/```(?:json)?/gi, "").replace(/```/g, "\n");
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  let start = -1;
+
+  for (let i = 0; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+
+    // Track string state to avoid counting braces inside strings.
+    if (inStr) {
+      if (esc) {
+        esc = false;
+      } else if (ch === "\\") {
+        esc = true;
+      } else if (ch === '"') {
+        inStr = false;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inStr = true;
+      continue;
+    }
+
+    if (ch === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (ch === "}") {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        // Found a complete {...} block.
+        const candidate = cleaned.slice(start, i + 1);
+        try {
+          const parsed = JSON.parse(candidate);
+          if (
+            parsed &&
+            typeof parsed.name === "string" &&
+            parsed.arguments &&
+            typeof parsed.arguments === "object"
+          ) {
+            return {
+              id: `call_fallback_${iter}`,
+              name: parsed.name,
+              arguments: parsed.arguments as Record<string, unknown>,
+            };
+          }
+        } catch {
+          // Try next block.
+        }
+        start = -1;
+      }
+    }
+  }
+
+  // Bash fence fallback.
+  const fenceMatch = content.match(/```(?:bash|sh|zsh|shell)?\s*\n([\s\S]*?)```/i);
+  if (fenceMatch?.[1]) {
+    const command = fenceMatch[1].trim();
+    if (command) {
+      return {
+        id: `call_fallback_${iter}`,
+        name: "run_command",
+        arguments: { command },
+      };
+    }
+  }
+
+  // Inline command fallback.
+  const inlineMatch = content.match(/(?:run|execute|will run|i'?ll run|i'?ll execute).*?`([^`\n]+)`/i);
+  if (inlineMatch?.[1]) {
+    return {
+      id: `call_fallback_${iter}`,
+      name: "run_command",
+      arguments: { command: inlineMatch[1].trim() },
+    };
+  }
+
+  return undefined;
 }

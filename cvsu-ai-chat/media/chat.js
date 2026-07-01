@@ -208,6 +208,21 @@
     scrollToBottom();
   }
 
+  function appendToolCard(name, chunk) {
+    const card = toolCards[name];
+    if (!card) return;
+    const body = card.querySelector(".tool-body");
+    if (!body) return;
+    const text = String(chunk || "");
+    if (!text) return;
+    if (body.textContent === "running…") body.textContent = "";
+    body.textContent += text;
+    if (body.textContent.length > 16000) {
+      body.textContent = "…\n" + body.textContent.slice(-14000);
+    }
+    scrollToBottom();
+  }
+
   function summarizeArgs(args) {
     if (!args || typeof args !== "object") return "";
     return Object.keys(args)
@@ -488,6 +503,8 @@
         currentBubble = null;
       }
       addToolCard(m.name, m.args);
+    } else if (m.type === "toolProgress") {
+      appendToolCard(m.name, m.chunk);
     } else if (m.type === "toolResult") {
       finishToolCard(m.name, m.result);
     } else if (m.type === "agentAnswer") {

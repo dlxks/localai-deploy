@@ -823,6 +823,9 @@ export class ChatPanel implements vscode.WebviewViewProvider {
           onToolStart: (name, args) => {
             this.view?.webview.postMessage({ type: "toolStart", name, args });
           },
+          onToolProgress: (name, chunk) => {
+            this.view?.webview.postMessage({ type: "toolProgress", name, chunk });
+          },
           onToolResult: (name, result) => {
             this.view?.webview.postMessage({ type: "toolResult", name, result });
           },
