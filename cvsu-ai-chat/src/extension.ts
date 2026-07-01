@@ -46,7 +46,6 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("localai.baseUrl")) void refreshTargetBar();
-      if (e.affectsConfiguration("localai.target")) ChatPanel.current?.refreshUI();
       if (e.affectsConfiguration("localai.rag.enabled")) refreshRagBar();
     })
   );
@@ -82,19 +81,12 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   // Register Inline Autocomplete when supported by the host IDE.
-  try {
-    const registerInline = (vscode.languages as any).registerInlineCompletionItemProvider;
-    if (typeof registerInline === "function") {
-      context.subscriptions.push(
-        registerInline(
-          { pattern: "**" },
-          new LocalAIInlineCompletionProvider(context.secrets)
-        )
-      );
-    }
-  } catch {
-    // Non-fatal on forks that don't fully support inline completion APIs.
-  }
+  context.subscriptions.push(
+    vscode.languages.registerInlineCompletionItemProvider(
+      { pattern: "**" },
+      new LocalAIInlineCompletionProvider(context.secrets)
+    )
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("cvsuai.openChat", () => ChatPanel.show(context)),
@@ -102,6 +94,10 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("cvsuai.newChat", () => {
       ChatPanel.show(context);
       ChatPanel.current?.newChatFromCommand();
+    }),
+
+    vscode.commands.registerCommand("cvsuai.refreshUI", () => {
+      ChatPanel.current?.refreshUI();
     }),
 
     vscode.commands.registerCommand("cvsuai.compactChat", async () => {

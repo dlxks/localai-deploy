@@ -11,6 +11,8 @@ export function isAutocompleteEnabled(): boolean {
   return cfg.get<boolean>("autocomplete.enabled") ?? false;
 }
 
+let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+
 export class LocalAIInlineCompletionProvider implements vscode.InlineCompletionItemProvider {
   constructor(private secrets: vscode.SecretStorage) {}
 
@@ -22,18 +24,18 @@ export class LocalAIInlineCompletionProvider implements vscode.InlineCompletionI
   ): Promise<vscode.InlineCompletionItem[] | undefined> {
     if (!isAutocompleteEnabled()) return undefined;
 
-    // Get prefix and suffix for FIM (Fill-in-the-middle) if the model supports it, 
-    // or just the prefix. For simplicity, we just send the prefix.
     const prefixRange = new vscode.Range(new vscode.Position(0, 0), position);
     const prefix = document.getText(prefixRange);
-    
-    // Only trigger if we have some context
     if (prefix.trim().length === 0) return undefined;
 
-    // Throttle / debounce slightly by waiting a bit to see if user is still typing
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // Debounce: cancel any pending timer before starting a new one.
+    clearTimeout(debounceTimer);
+    await new Promise<void>((resolve) => { debounceTimer = setTimeout(resolve, 300); });
     if (token.isCancellationRequested) return undefined;
 
+    // Wire CancellationToken to a real AbortController so fetch actually aborts.
+    const ac = new AbortController();
+    const sub = token.onCancellationRequested(() => ac.abort());
     try {
       const apiKey = await this.secrets.get(getApiKeySecretKey()) || process.env.LOCALAI_API_KEY;
       const headers: Record<string, string> = {
@@ -54,7 +56,7 @@ export class LocalAIInlineCompletionProvider implements vscode.InlineCompletionI
           temperature: 0.1,
           stop: ["\n\n", "```"]
         }),
-        signal: token as any
+        signal: ac.signal,
       });
 
       if (!res.ok) {
@@ -64,12 +66,16 @@ export class LocalAIInlineCompletionProvider implements vscode.InlineCompletionI
 
       const json = await res.json() as any;
       const text = json?.choices?.[0]?.text;
-      
       if (text) {
         return [new vscode.InlineCompletionItem(text, new vscode.Range(position, position))];
       }
     } catch (e) {
-      console.error("Autocomplete error:", e);
+      // Ignore abort errors (user kept typing); log the rest.
+      if (!(e instanceof Error && e.name === "AbortError")) {
+        console.error("Autocomplete error:", e);
+      }
+    } finally {
+      sub.dispose();
     }
 
     return undefined;
