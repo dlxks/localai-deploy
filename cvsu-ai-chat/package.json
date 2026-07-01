@@ -163,6 +163,11 @@
           "default": true,
           "description": "When a conversation nears the model's context window, automatically summarize the older messages into a compact summary and continue — keeping context while freeing tokens. Disable to fall back to a simple warning."
         },
+        "localai.autopilot": {
+          "type": "boolean",
+          "default": false,
+          "description": "If a reply is interrupted or stopped, automatically compact older history (when needed) and continue the response."
+        },
         "localai.warnNearContextLimit": {
           "type": "boolean",
           "default": true,

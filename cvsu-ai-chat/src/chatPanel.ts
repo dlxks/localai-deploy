@@ -66,12 +66,16 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     void this.postTargetState();
     void this.postAuthState();
     this.postModelState();
+    this.postAutoApproveWritesState();
+    this.postAutopilotState();
     this.refreshSlashMenu();
   }
 
   /** Called when the webview's JS has loaded and can receive messages. */
   private onWebviewReady() {
     void this.postAuthState();
+    this.postAutoApproveWritesState();
+    this.postAutopilotState();
     const recent = this.store.mostRecent();
     if (recent && recent.messages.length > 0) {
       this.loadSession(recent.id);
@@ -98,6 +102,12 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         void this.postTargetState();
         this.postModelState();
         this.refreshSlashMenu();
+        break;
+      case "requestAutoApproveWrites":
+        this.postAutoApproveWritesState();
+        break;
+      case "requestAutopilotMode":
+        this.postAutopilotState();
         break;
       case "toggleTarget":
         await vscode.commands.executeCommand("cvsuai.toggleTarget");
@@ -143,6 +153,20 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         break;
       case "setAgentMode":
         this.agentMode = Boolean(msg.value);
+        break;
+      case "setAutoApproveWrites":
+        await vscode.workspace.getConfiguration("localai").update(
+          "agent.autoApproveWrites",
+          Boolean(msg.value),
+          vscode.ConfigurationTarget.Global
+        );
+        break;
+      case "setAutopilotMode":
+        await vscode.workspace.getConfiguration("localai").update(
+          "autopilot",
+          Boolean(msg.value),
+          vscode.ConfigurationTarget.Global
+        );
         break;
       case "applyCode":
         await this.applyCode(String(msg.code ?? ""), String(msg.lang ?? ""));
@@ -265,6 +289,20 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     this.view?.webview.postMessage({ type: "authState", authed });
   }
 
+  private postAutoApproveWritesState() {
+    const enabled = vscode.workspace.getConfiguration("localai").get<boolean>("agent.autoApproveWrites") ?? false;
+    this.view?.webview.postMessage({ type: "autoApproveWrites", value: enabled });
+  }
+
+  private postAutopilotState() {
+    const enabled = vscode.workspace.getConfiguration("localai").get<boolean>("autopilot") ?? false;
+    this.view?.webview.postMessage({ type: "autopilotMode", value: enabled });
+  }
+
+  private autopilotEnabled(): boolean {
+    return vscode.workspace.getConfiguration("localai").get<boolean>("autopilot") ?? false;
+  }
+
   /** Tell the webview the currently-selected model (for the header chip). */
   /** Push current model immediately, then async-fetch the available list for the
    *  dropdown (so the select shows the current value without waiting on the server). */
@@ -354,6 +392,8 @@ export class ChatPanel implements vscode.WebviewViewProvider {
   }
 
   private loadSession(id: string) {
+    this.postAutoApproveWritesState();
+    this.postAutopilotState();
     const s = this.store.get(id);
     if (!s) return;
     this.history = s.messages.slice();
@@ -493,6 +533,28 @@ export class ChatPanel implements vscode.WebviewViewProvider {
    *  server with a doomed summarize call on every subsequent message (we fall
    *  back to the warning instead). A manual compact always retries. */
   private compactFailed = false;
+  /** True while autopilot recovery (compact + continue) is running. */
+  private autopilotRecovering = false;
+
+  /**
+   * If Autopilot is enabled, recover from interrupted output by compacting old
+   * history first (to free tokens), then issuing a Continue.
+   */
+  private async maybeAutopilotRecover() {
+    if (!this.autopilotEnabled() || this.autopilotRecovering) return;
+    const last = this.history[this.history.length - 1];
+    if (!last || last.role !== "assistant") return;
+
+    this.autopilotRecovering = true;
+    this.view?.webview.postMessage({ type: "status", value: "Autopilot: compacting then continuing…" });
+    try {
+      await this.compactNow(/*auto*/ true);
+      await this.continueReply(/*fromAutopilot*/ true);
+    } finally {
+      this.autopilotRecovering = false;
+      this.view?.webview.postMessage({ type: "status", value: "" });
+    }
+  }
 
   /** Trigger threshold helper: usable input budget in tokens. */
   private inputBudget(): number {
@@ -639,7 +701,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
    * Continue a reply that was likely cut off by max_tokens: append a short
    * "continue" instruction and stream more, joining it onto the last reply.
    */
-  private async continueReply() {
+  private async continueReply(fromAutopilot = false) {
     const last = this.history[this.history.length - 1];
     if (!last || last.role !== "assistant") return;
     const abort = new AbortController();
@@ -675,6 +737,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
       if (this.abort?.signal.aborted) {
         if (assembled) last.content = (last.content ?? "") + assembled;
         this.view?.webview.postMessage({ type: "done", stats: this.makeStats(assembled, started, firstTokenAt) });
+        if (!fromAutopilot) await this.maybeAutopilotRecover();
       } else {
         this.view?.webview.postMessage({ type: "error", value: err?.message ?? String(err) });
       }
@@ -719,6 +782,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
       if (this.abort?.signal.aborted) {
         if (assembled) this.history.push({ role: "assistant", content: assembled });
         this.view?.webview.postMessage({ type: "done", stats: this.makeStats(assembled, started, firstTokenAt) });
+        await this.maybeAutopilotRecover();
       } else {
         this.history.pop(); // roll back the user turn on failure
         this.view?.webview.postMessage({ type: "error", value: err?.message ?? String(err) });
@@ -778,6 +842,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     } catch (err: any) {
       if (this.abort?.signal.aborted) {
         this.view?.webview.postMessage({ type: "done" });
+        await this.maybeAutopilotRecover();
       } else {
         this.view?.webview.postMessage({ type: "error", value: err?.message ?? String(err) });
       }
@@ -911,7 +976,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         <button id="new-chat" class="ghost" title="New chat">＋ New</button>
       </span>
     </header>
-    <div id="history-panel" hidden>
+    <div id="history-panel" hidden aria-label="Chat history">
       <div class="history-head">
         <span>Chat history</span>
         <button id="history-close" class="ghost" title="Close">✕</button>
@@ -938,6 +1003,12 @@ export class ChatPanel implements vscode.WebviewViewProvider {
       <div id="row">
         <label id="agentToggle" title="Let the assistant read, search, and edit workspace files">
           <input type="checkbox" id="agentMode" /> <span>Agent mode</span>
+        </label>
+        <label id="approveToggle" title="Skip file-write confirmation prompts when Agent mode edits files">
+          <input type="checkbox" id="autoApproveWrites" /> <span>Auto-approve writes</span>
+        </label>
+        <label id="autopilotToggle" title="If a reply is interrupted/stopped, auto-compact old context then continue the response">
+          <input type="checkbox" id="autopilotMode" /> <span>Autopilot</span>
         </label>
         <span id="status"></span>
         <select id="model-select" title="Model used for replies">

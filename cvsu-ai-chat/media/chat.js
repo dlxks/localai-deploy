@@ -20,6 +20,8 @@
   const historyClose = document.getElementById("history-close");
   const statusEl = document.getElementById("status");
   const agentModeEl = document.getElementById("agentMode");
+  const autoApproveWritesEl = document.getElementById("autoApproveWrites");
+  const autopilotModeEl = document.getElementById("autopilotMode");
   const slashMenuEl = document.getElementById("slash-menu");
 
   // Slash commands provided by the host as a JSON script tag.
@@ -225,6 +227,83 @@
     const esc = (s) =>
       s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+    const isTableSep = (line) => {
+      const s = String(line || "").trim();
+      if (!s.includes("|")) return false;
+      const core = s.replace(/^\|/, "").replace(/\|$/, "").trim();
+      if (!core) return false;
+      return core
+        .split("|")
+        .every((c) => /^:?-{3,}:?$/.test(c.trim()));
+    };
+
+    const splitTableRow = (line) =>
+      String(line || "")
+        .trim()
+        .replace(/^\|/, "")
+        .replace(/\|$/, "")
+        .split("|")
+        .map((c) => c.trim());
+
+    const renderInline = (text) => {
+      let t = esc(text || "");
+      t = t.replace(/`([^`]+)`/g, "<code>$1</code>");
+      t = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+      return t;
+    };
+
+    const renderTextWithTables = (text) => {
+      const lines = String(text || "").split("\n");
+      const chunks = [];
+      let i = 0;
+      while (i < lines.length) {
+        const header = lines[i];
+        const sep = lines[i + 1];
+        if (header && sep && header.includes("|") && isTableSep(sep)) {
+          const headers = splitTableRow(header);
+          const rows = [];
+          i += 2;
+          while (i < lines.length && lines[i].trim() && lines[i].includes("|")) {
+            if (isTableSep(lines[i])) {
+              i++;
+              continue;
+            }
+            rows.push(splitTableRow(lines[i]));
+            i++;
+          }
+          const headHtml =
+            "<thead><tr>" +
+            headers.map((h) => "<th>" + renderInline(h) + "</th>").join("") +
+            "</tr></thead>";
+          const bodyHtml =
+            "<tbody>" +
+            rows
+              .map((r) => "<tr>" + headers.map((_, idx) => "<td>" + renderInline(r[idx] || "") + "</td>").join("") + "</tr>")
+              .join("") +
+            "</tbody>";
+          chunks.push('<div class="md-table-wrap"><table class="md-table">' + headHtml + bodyHtml + "</table></div>");
+          continue;
+        }
+
+        const para = [];
+        while (i < lines.length) {
+          const cur = lines[i];
+          const next = lines[i + 1];
+          if (!cur.trim()) {
+            i++;
+            break;
+          }
+          if (cur.includes("|") && next && isTableSep(next)) break;
+          para.push(cur);
+          i++;
+        }
+        if (para.length) {
+          chunks.push("<p>" + para.map(renderInline).join("<br>") + "</p>");
+        }
+      }
+      return chunks.join("");
+    };
+
     const parts = [];
     const fence = /```([^\n]*)\n?([\s\S]*?)```/g;
     let last = 0;
@@ -256,13 +335,7 @@
             "</div>"
           );
         }
-        let t = esc(p.value);
-        t = t.replace(/`([^`]+)`/g, "<code>$1</code>");
-        t = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-        return t
-          .split(/\n{2,}/)
-          .map((para) => "<p>" + para.replace(/\n/g, "<br>") + "</p>")
-          .join("");
+        return renderTextWithTables(p.value);
       })
       .join("");
   }
@@ -469,6 +542,10 @@
       }
     } else if (m.type === "target") {
       renderTarget(m.target, m.localUp);
+    } else if (m.type === "autoApproveWrites") {
+      if (autoApproveWritesEl) autoApproveWritesEl.checked = !!m.value;
+    } else if (m.type === "autopilotMode") {
+      if (autopilotModeEl) autopilotModeEl.checked = !!m.value;
     } else if (m.type === "sessionList") {
       renderSessionList(m.sessions || [], m.currentId);
     } else if (m.type === "loadConversation") {
@@ -657,6 +734,18 @@
       : "Message CvSU-AI VSCode Chat…";
   });
 
+  if (autoApproveWritesEl) {
+    autoApproveWritesEl.addEventListener("change", () => {
+      vscode.postMessage({ type: "setAutoApproveWrites", value: autoApproveWritesEl.checked });
+    });
+  }
+
+  if (autopilotModeEl) {
+    autopilotModeEl.addEventListener("change", () => {
+      vscode.postMessage({ type: "setAutopilotMode", value: autopilotModeEl.checked });
+    });
+  }
+
   inputEl.addEventListener("input", () => {
     autoresize();
     updateSlashMenu();
@@ -828,4 +917,6 @@
   // Without this, the host's constructor-time postMessage calls fire before
   // this listener exists and are lost — leaving the history panel blank.
   vscode.postMessage({ type: "ready" });
+  vscode.postMessage({ type: "requestAutoApproveWrites" });
+  vscode.postMessage({ type: "requestAutopilotMode" });
 })();

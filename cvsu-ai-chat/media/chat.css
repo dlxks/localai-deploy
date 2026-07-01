@@ -18,12 +18,14 @@ html, body {
   font-size: var(--vscode-font-size);
   color: var(--vscode-foreground);
   background: var(--vscode-editor-background);
+  overflow: hidden;
 }
 
 #app {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 100vh;
+  height: 100%;
   position: relative;
 }
 
@@ -33,7 +35,8 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 14px;
+  gap: 10px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.18));
 }
 .brand {
@@ -44,6 +47,7 @@ html, body {
   letter-spacing: 0.2px;
   font-size: 12px;
   opacity: 0.9;
+  min-width: 0;
 }
 .brand-logo {
   height: 16px;
@@ -51,11 +55,18 @@ html, body {
   display: block;
 }
 
+.topbar-actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 /* ---------- messages ---------- */
 #messages {
   flex: 1 1 auto;
   overflow-y: auto;
-  padding: 18px 16px;
+  padding: 18px 16px 22px;
   display: flex;
   flex-direction: column;
   gap: var(--gap);
@@ -208,6 +219,35 @@ html, body {
   border-radius: 4px;
 }
 
+/* markdown table rendering */
+.md-table-wrap {
+  margin: 12px 0;
+  overflow-x: auto;
+  border: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.2));
+  border-radius: 8px;
+  background: var(--vscode-editorWidget-background, rgba(128,128,128,0.08));
+}
+.md-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  min-width: 360px;
+}
+.md-table th,
+.md-table td {
+  padding: 7px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.18));
+  vertical-align: top;
+}
+.md-table th {
+  font-weight: 600;
+  background: var(--vscode-sideBar-background, rgba(128,128,128,0.12));
+}
+.md-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
 /* streaming cursor */
 .cursor::after {
   content: "▍";
@@ -287,7 +327,7 @@ html, body {
   padding: 10px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 .input-wrap {
   position: relative;
@@ -337,8 +377,9 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 8px 10px;
   min-height: 18px;
+  flex-wrap: wrap;
 }
 
 #agentToggle {
@@ -352,17 +393,32 @@ html, body {
 }
 #agentToggle input { cursor: pointer; margin: 0; }
 
+#approveToggle,
+#autopilotToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+  opacity: 0.85;
+}
+#approveToggle input,
+#autopilotToggle input { cursor: pointer; margin: 0; }
+
 #status {
   flex: 1 1 auto;          /* take the middle so the model select sits on the right */
   font-size: 11px;
   opacity: 0.65;
   font-style: italic;
+  min-width: 72px;
 }
 
 /* model selector dropdown (composer row) */
 #model-select {
-  flex: 0 0 auto;
-  max-width: 55%;
+  flex: 1 1 180px;
+  min-width: 140px;
+  max-width: 100%;
   font-size: 11px;
   padding: 2px 6px;
   border-radius: 6px;
@@ -372,6 +428,84 @@ html, body {
   cursor: pointer;
 }
 #model-select:hover { border-color: var(--vscode-focusBorder); }
+
+@media (max-width: 720px) {
+  #topbar {
+    align-items: flex-start;
+  }
+  .brand {
+    flex: 1 1 100%;
+  }
+  .topbar-actions {
+    width: 100%;
+  }
+  #row {
+    justify-content: flex-start;
+  }
+  #agentToggle,
+  #approveToggle,
+  #autopilotToggle {
+    flex: 1 1 auto;
+  }
+  #status {
+    flex: 1 1 100%;
+    order: 4;
+  }
+  #model-select {
+    flex: 1 1 100%;
+    max-width: 100%;
+    min-width: 0;
+    order: 5;
+  }
+  #messages {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .context-chip,
+  .tool-card,
+  .reply-footer {
+    margin-left: 0;
+    width: 100%;
+  }
+  .reply-footer {
+    gap: 4px;
+  }
+  .history-head,
+  .history-item {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+@media (max-width: 520px) {
+  #topbar {
+    padding: 8px 10px;
+  }
+  .ghost {
+    padding: 3px 6px;
+  }
+  #composer {
+    padding: 8px 10px 10px;
+  }
+  .input-wrap {
+    padding-left: 10px;
+  }
+  #input {
+    min-height: 40px;
+  }
+  #history-panel {
+    width: 100%;
+  }
+  .history-item {
+    flex-wrap: wrap;
+  }
+  .history-meta {
+    margin-left: auto;
+  }
+  .history-actions {
+    opacity: 1;
+  }
+}
 
 .ghost {
   background: transparent;

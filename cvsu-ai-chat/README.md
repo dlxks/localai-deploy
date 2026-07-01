@@ -123,6 +123,8 @@ embedding model on the local server (see `../local-localai/`). Other commands:
 - On your messages: **✎** to edit and resend.
 - Type **`@`** in the composer to attach a specific workspace file to your
   message (a 📎 chip shows how many files were attached).
+- Enable **Autopilot** in the composer to auto-recover interrupted replies:
+  it compacts older history when needed, then issues a Continue automatically.
 
 ### Server / Local toggle
 A chip in the chat header (and a status-bar item) shows which AI you're talking to:
@@ -184,6 +186,7 @@ It reads an existing test file and **appends** rather than overwriting it.
 | `localai.model` | `qwen2.5-...` | Chat model. |
 | `localai.contextSize` | `4096` | The model's context window in tokens. **Must match the loaded model** — set to `8192` for the local instance. Drives history trimming and auto-compaction. |
 | `localai.autoCompact` | `true` | Auto-summarize older messages when a chat nears the window (keeps context, frees tokens). Off = a simple warning instead. |
+| `localai.autopilot` | `false` | If a reply is interrupted/stopped, auto-compact old context (if needed) then auto-continue. |
 | `localai.maxTokens` | `0` | Cap the reply length (0 = no cap). Lower = faster replies. Try `400`–`600`. |
 | `localai.contextTokenBudget` | `2500` | Max tokens of context attached per message. Lower = smaller, faster requests. |
 | `localai.agent.maxIterations` | `8` | Max agent tool-call steps per turn. |
