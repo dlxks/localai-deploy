@@ -1,4 +1,4 @@
-# CvSU-AI VSCode Chat
+# CvSUAI
 
 A Copilot/Claude-style AI chat panel and coding agent for your own **LocalAI** server.
 
@@ -14,7 +14,7 @@ A Copilot/Claude-style AI chat panel and coding agent for your own **LocalAI** s
 ## Quick start (TL;DR)
 
 1. **Build and Install** the `.vsix` file (see below) and **reload** VS Code.
-2. Click the **CvSU-AI VSCode Chat icon** in the Activity Bar (left strip).
+2. Click the **CvSUAI icon** in the Activity Bar (left strip).
 3. **Configure** — Click the ⚙️ Settings icon at the top of the chat panel to easily set your Model, Base URLs, and API key.
 4. **Ask anything.** Open a file and type — it auto-attaches the file/selection as context.
 5. **Want it to edit files?** Tick **Agent mode**, or type **`/fix`**, **`/test`**, **`/refactor`**.
@@ -48,6 +48,11 @@ The easiest way to configure the extension is to use the **Settings Button (⚙�
 ---
 
 ## How to use it
+
+### Keyboard shortcut
+- Open chat shortcut defaults to **Ctrl+Shift+L** on Windows/Linux and **Cmd+Shift+L** on macOS.
+- You can change it anytime from Command Palette via **CvSU-AI VSCode Chat: Edit Keyboard Shortcut**.
+- Then search for **cvsuai.openChat** in keybindings to assign your preferred key combo.
 
 ### Plain chat
 Open the panel and type. The reply streams in. The extension **automatically
