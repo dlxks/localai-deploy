@@ -33,7 +33,7 @@ export async function signIn(secrets: vscode.SecretStorage): Promise<boolean> {
         detail: "Open the browser to log in, then paste your key back",
       },
     ],
-    { placeHolder: "How would you like to sign in to CvSU-AI VSCode Chat?", ignoreFocusOut: true }
+    { placeHolder: "How would you like to sign in to CVSU AI DEV?", ignoreFocusOut: true }
   );
   if (!choice) return false;
 
@@ -91,7 +91,7 @@ async function promptCredentialAfterBrowser(secrets: vscode.SecretStorage): Prom
 async function validate(secrets: vscode.SecretStorage): Promise<boolean> {
   try {
     await listModels(secrets);
-    vscode.window.showInformationMessage("Signed in to CvSU-AI VSCode Chat.");
+    vscode.window.showInformationMessage("Signed in to CVSU AI DEV.");
     return true;
   } catch (err: any) {
     const msg = String(err?.message ?? err);
@@ -106,14 +106,14 @@ async function validate(secrets: vscode.SecretStorage): Promise<boolean> {
 
 export async function signOut(secrets: vscode.SecretStorage): Promise<void> {
   await clearCredentials(secrets);
-  vscode.window.showInformationMessage("Signed out of CvSU-AI VSCode Chat.");
+  vscode.window.showInformationMessage("Signed out of CVSU AI DEV.");
 }
 
 /** Ensure we have credentials; if not, offer to sign in. Returns true if usable. */
 export async function ensureCredentials(secrets: vscode.SecretStorage): Promise<boolean> {
   if (await hasCredentials(secrets)) return true;
   const pick = await vscode.window.showInformationMessage(
-    "Sign in to CvSU-AI VSCode Chat to start.",
+    "Sign in to CVSU AI DEV to start.",
     { modal: true },
     "Sign In"
   );

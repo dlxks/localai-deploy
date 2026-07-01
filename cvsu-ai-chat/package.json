@@ -1,7 +1,7 @@
 {
   "name": "localai-vscode-chat",
-  "displayName": "CvSU-AI",
-  "description": "Copilot-style AI chat and coding agent for the LocalAI (LocalAI) server.",
+  "displayName": "CVSU AI DEV",
+  "description": "Forked version of the original project. Copilot-style AI chat and coding agent for the LocalAI server, with ongoing improvements.",
   "version": "1.0.0-beta",
   "publisher": "localai-community",
   "icon": "media/icon.png",
@@ -25,65 +25,65 @@
     "commands": [
       {
         "command": "cvsuai.openChat",
-        "title": "CvSU-AI VSCode Chat: Open Chat",
+        "title": "CVSU AI DEV: Open Chat",
         "icon": "$(comment-discussion)"
       },
       {
         "command": "cvsuai.chatSelection",
-        "title": "CvSU-AI VSCode Chat: Chat with Selection"
+        "title": "CVSU AI DEV: Chat with Selection"
       },
       {
         "command": "cvsuai.signIn",
-        "title": "CvSU-AI VSCode Chat: Sign In"
+        "title": "CVSU AI DEV: Sign In"
       },
       {
         "command": "cvsuai.signOut",
-        "title": "CvSU-AI VSCode Chat: Sign Out"
+        "title": "CVSU AI DEV: Sign Out"
       },
       {
         "command": "cvsuai.toggleTarget",
-        "title": "CvSU-AI VSCode Chat: Switch Server / Local"
+        "title": "CVSU AI DEV: Switch Server / Local"
       },
       {
         "command": "cvsuai.indexWorkspace",
-        "title": "CvSU-AI VSCode Chat: Index Workspace for RAG"
+        "title": "CVSU AI DEV: Index Workspace for RAG"
       },
       {
         "command": "cvsuai.showRAGStats",
-        "title": "CvSU-AI VSCode Chat: Show RAG Index Stats"
+        "title": "CVSU AI DEV: Show RAG Index Stats"
       },
       {
         "command": "cvsuai.clearRAGIndex",
-        "title": "CvSU-AI VSCode Chat: Clear RAG Index"
+        "title": "CVSU AI DEV: Clear RAG Index"
       },
       {
         "command": "cvsuai.newChat",
-        "title": "CvSU-AI VSCode Chat: New Chat",
+        "title": "CVSU AI DEV: New Chat",
         "icon": "$(add)"
       },
       {
         "command": "cvsuai.customConfig",
-        "title": "CvSU-AI VSCode Chat: Set Up Custom Agents & Skills (.cvsuai)"
+        "title": "CVSU AI DEV: Set Up Custom Agents & Skills (.cvsuai)"
       },
       {
         "command": "cvsuai.compactChat",
-        "title": "CvSU-AI VSCode Chat: Compact Chat (summarize older messages)"
+        "title": "CVSU AI DEV: Compact Chat (summarize older messages)"
       },
       {
         "command": "cvsuai.openSettings",
-        "title": "CvSU-AI VSCode Chat: Settings",
+        "title": "CVSU AI DEV: Settings",
         "icon": "$(settings-gear)"
       },
       {
         "command": "cvsuai.editKeybinding",
-        "title": "CvSU-AI VSCode Chat: Edit Keyboard Shortcut"
+        "title": "CVSU AI DEV: Edit Keyboard Shortcut"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
           "id": "cvsuai-container",
-          "title": "CvSUAI",
+          "title": "CVSU AI DEV",
           "icon": "media/activity-icon.svg"
         }
       ]
@@ -132,7 +132,7 @@
       }
     ],
     "configuration": {
-      "title": "CvSU-AI VSCode Chat",
+      "title": "CVSU AI DEV",
       "properties": {
         "localai.baseUrl": {
           "type": "string",
@@ -215,7 +215,7 @@
         "localai.rag.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "Enable codebase semantic search (RAG). Index with 'CvSU-AI VSCode Chat: Index Workspace for RAG', then ask with /codebase."
+          "description": "Enable codebase semantic search (RAG). Index with 'CVSU AI DEV: Index Workspace for RAG', then ask with /codebase."
         },
         "localai.rag.topK": {
           "type": "integer",
@@ -232,7 +232,7 @@
         "localai.openChatKeybinding": {
           "type": "string",
           "default": "ctrl+shift+l / cmd+shift+l",
-          "description": "Keyboard shortcut to open the CvSU-AI chat. Edit with 'CvSU-AI VSCode Chat: Edit Keyboard Shortcut' command or modify directly in keybindings.json (search for 'cvsuai.openChat')."
+          "description": "Keyboard shortcut to open the CVSU AI DEV chat. Edit with 'CVSU AI DEV: Edit Keyboard Shortcut' command or modify directly in keybindings.json (search for 'cvsuai.openChat')."
         }
       }
     }

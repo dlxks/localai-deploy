@@ -2,6 +2,8 @@
 
 A Copilot/Claude-style AI chat panel and coding agent for your own **LocalAI** server.
 
+This repository is a fork of the original project and is still under active improvements.
+
 - **Chat** — streaming responses in a clean side panel.
 - **Context-aware** — automatically uses your selection → open file → workspace.
 - **Agent mode** — the assistant can read, search, and edit files in your open

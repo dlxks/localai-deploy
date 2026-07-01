@@ -115,7 +115,7 @@ export function watchCustomConfig(
 export async function scaffoldCustomConfig(): Promise<vscode.Uri | undefined> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (!folder) {
-    vscode.window.showWarningMessage("CvSU-AI VSCode Chat: open a folder first.");
+    vscode.window.showWarningMessage("CVSU AI DEV: open a folder first.");
     return undefined;
   }
   const root = vscode.Uri.joinPath(folder.uri, ".cvsuai");

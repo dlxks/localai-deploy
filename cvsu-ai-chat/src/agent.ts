@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { ChatMessage, ToolCall, streamChatWithTools } from "./client";
 import { ToolContext, findTool, toolDefs } from "./tools";
 
-const SYSTEM_PROMPT = `You are CvSU-AI VSCode Chat, a coding agent embedded in VS Code.
+const SYSTEM_PROMPT = `You are CVSU AI DEV, a coding agent embedded in VS Code.
 You can use tools to read AND MODIFY files in the user's workspace.
 
 CRITICAL — you ACT, you don't just suggest. And you NEVER blindly overwrite.

@@ -2,6 +2,7 @@
 name: localai-inference
 description: Call the LocalAI instance running locally on port 8081 for offline and private AI inference.
 ---
+
 # LocalAI Inference Skill
 
 Use this skill whenever you need to query an open-source model locally or if the user requests "offline mode", "private generation", or "LocalAI".
@@ -9,9 +10,11 @@ Use this skill whenever you need to query an open-source model locally or if the
 LocalAI exposes an OpenAI-compatible REST API. The default endpoint for this workspace is `http://localhost:8081/v1/chat/completions`.
 
 ## Usage
+
 To use the LocalAI instance, you can use the `run_command` tool to execute a Python script that hits the endpoint.
 
 Example payload for Python `urllib`:
+
 ```python
 import urllib.request
 import json
@@ -121,12 +124,12 @@ The shortest path to done is the right path.
 """
 
 data = json.dumps({
-    # If using a specific model downloaded in your models dir, specify the filename here (e.g. "llama-3-8b.gguf"). 
+    # If using a specific model downloaded in your models dir, specify the filename here (e.g. "llama-3-8b.gguf").
     # Otherwise, you can use "gpt-3.5-turbo" if the LocalAI model routing is set up.
-    "model": "gpt-3.5-turbo", 
+    "model": "gpt-3.5-turbo",
     "messages": [
         {
-            "role": "system", 
+            "role": "system",
             "content": SYSTEM_PROMPT
         },
         {"role": "user", "content": "Hello!"}
