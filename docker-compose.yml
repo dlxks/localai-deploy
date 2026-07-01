@@ -19,7 +19,7 @@ services:
       # Other typical LocalAI configurations
       - MODELS_PATH=/build/models
       - THREADS=10
-      - CONTEXT_SIZE=4096
+      - CONTEXT_SIZE=65536
       - LOCALAI_DISABLE_HARDWARE_DEFAULTS=true
     volumes:
       - ./models:/build/models
