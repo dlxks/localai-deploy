@@ -81,13 +81,20 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // Register Inline Autocomplete
-  context.subscriptions.push(
-    vscode.languages.registerInlineCompletionItemProvider(
-      { pattern: "**" },
-      new LocalAIInlineCompletionProvider(context.secrets)
-    )
-  );
+  // Register Inline Autocomplete when supported by the host IDE.
+  try {
+    const registerInline = (vscode.languages as any).registerInlineCompletionItemProvider;
+    if (typeof registerInline === "function") {
+      context.subscriptions.push(
+        registerInline(
+          { pattern: "**" },
+          new LocalAIInlineCompletionProvider(context.secrets)
+        )
+      );
+    }
+  } catch {
+    // Non-fatal on forks that don't fully support inline completion APIs.
+  }
 
   context.subscriptions.push(
     vscode.commands.registerCommand("cvsuai.openChat", () => ChatPanel.show(context)),

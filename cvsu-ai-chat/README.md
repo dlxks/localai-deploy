@@ -13,11 +13,17 @@ A Copilot/Claude-style AI chat panel and coding agent for your own **LocalAI** s
 
 ## Quick start (TL;DR)
 
-1. **Build and Install** the `.vsix` file (see below) and **reload** VS Code.
+1. **Build and Install** the `.vsix` file (see below) and **reload** your IDE.
 2. Click the **CvSUAI icon** in the Activity Bar (left strip).
 3. **Configure** — Click the ⚙️ Settings icon at the top of the chat panel to easily set your Model, Base URLs, and API key.
 4. **Ask anything.** Open a file and type — it auto-attaches the file/selection as context.
 5. **Want it to edit files?** Tick **Agent mode**, or type **`/fix`**, **`/test`**, **`/refactor`**.
+
+### IDE compatibility
+- Works in **VS Code** and most **VS Code-derived IDEs** that support standard VSIX extensions.
+- This includes **Antigravity IDE** and other forks that keep VS Code extension APIs.
+- Best compatibility path is **Install from VSIX** in the IDE's Extensions panel.
+- If a forked IDE uses OpenVSX, install from OpenVSX or install the same `.vsix` manually.
 
 ---
 
@@ -28,9 +34,27 @@ To install the extension from source:
 1. Clone this repository and run `npm install`.
 2. Build the extension package: `npm run package`.
 3. Install the generated `.vsix` file:
-   - **VS Code UI:** Extensions panel → `…` (top-right) → **Install from VSIX…** → pick the file.
-   - **or CLI:** `code --install-extension localai-vscode-chat-<version>.vsix`
-4. Reload VS Code.
+  - **Any compatible IDE UI (VS Code, Antigravity, forks):** Extensions panel → `…` (top-right) → **Install from VSIX…** → pick the file.
+  - **or CLI:** `code --install-extension localai-vscode-chat-<version>.vsix`
+4. Reload your IDE.
+
+Notes for non-VS Code IDEs:
+- Some forks use a different CLI binary name than `code`.
+- If the CLI command fails, use the IDE UI "Install from VSIX" flow.
+
+### Troubleshooting (Antigravity / VS Code forks)
+
+If you see errors like `command 'cvsuai.openSettings' not found` or
+`command 'cvsuai.newChat' not found`:
+
+1. Uninstall the old version of the extension.
+2. Install the latest generated `.vsix` again using **Install from VSIX**.
+3. Reload the IDE window.
+4. Open **Output** → choose **Log (Extension Host)** and check for activation errors.
+
+Why this happens:
+- Some forks implement only part of the VS Code API. The extension now falls back
+  safely when optional APIs are missing, so core commands can still register.
 
 ### Configuration
 

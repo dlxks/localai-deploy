@@ -1,6 +1,12 @@
-# Installing CvSU-AI VSCode Chat
+# Installing CvSUAI
 
 This extension allows you to connect a Copilot-style AI assistant directly to your own LocalAI server. 
+
+## Compatibility
+
+- Works in VS Code and most VS Code-derived IDEs that support VSIX extensions.
+- Includes Antigravity IDE and similar forks, as long as they keep VS Code extension APIs.
+- Most reliable install path across IDEs is "Install from VSIX" from the Extensions UI.
 
 ## Build & Install
 
@@ -14,15 +20,15 @@ This extension allows you to connect a Copilot-style AI assistant directly to yo
    npm run package
    ```
 4. Install the generated `.vsix` file:
-   - **VS Code UI:** Extensions panel → `…` (top-right) → **Install from VSIX…** → select the generated file.
-   - **or CLI:** `code --install-extension localai-vscode-chat-<version>.vsix`
-5. Reload VS Code.
+   - **IDE UI (recommended):** Extensions panel → `…` (top-right) → **Install from VSIX…** → select the generated file.
+   - **or CLI:** `code --install-extension localai-vscode-chat-<version>.vsix` (CLI name may differ by IDE)
+5. Reload your IDE.
 
 ## Configuration
 
 Once installed, the extension connects to `http://localhost:8081` by default.
 
-To customize your setup, open the VS Code Command Palette (`Ctrl+Shift+P`), type **Preferences: Open Settings (UI)**, and search for `localai`.
+To customize your setup, open your IDE Command Palette (`Ctrl+Shift+P`), type **Preferences: Open Settings (UI)**, and search for `localai`.
 
 Here you can change:
 - **`localai.baseUrl`**: The URL where your LocalAI instance is hosted.

@@ -59,3 +59,21 @@ gh release create v0.5.1 ./*.vsix --generate-notes
 - `.gitignore` keeps `.env`, `*.vsix`, and the stray caveman files out of the repo.
 - Team members do NOT get auto-updates from `.vsix` — see INSTALL.md. For true
   auto-update you'd need a private extension gallery (separate infrastructure).
+
+## VS Code forks and Antigravity distribution
+
+To support Antigravity IDE and other VS Code forks, prefer one of these flows:
+
+1. Ship the `.vsix` release asset and install with "Install from VSIX" in the IDE UI.
+2. Publish to OpenVSX for forks that use OpenVSX as their extension registry.
+
+OpenVSX publish (maintainer):
+
+```bash
+npm run package
+npx ovsx publish ./*.vsix -p <OPENVSX_TOKEN>
+```
+
+Notes:
+- Keep `engines.vscode` conservative so forks on older bases can still install.
+- If a fork blocks marketplace installs, VSIX/OpenVSX is the compatible path.
