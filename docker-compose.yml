@@ -20,5 +20,6 @@ services:
       - MODELS_PATH=/build/models
       - THREADS=10
       - CONTEXT_SIZE=4096
+      - LOCALAI_DISABLE_HARDWARE_DEFAULTS=true
     volumes:
       - ./models:/build/models
