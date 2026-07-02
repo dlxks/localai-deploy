@@ -12,7 +12,14 @@ import {
   getLocalUrl,
 } from "./endpoints";
 import { RagService } from "./ragService";
-import { loadCustomConfig, watchCustomConfig, scaffoldCustomConfig, getCustomConfig } from "./customConfig";
+import {
+  loadCustomConfig,
+  watchCustomConfig,
+  scaffoldCustomConfig,
+  getCustomConfig,
+  getPromptFiles,
+  getAgentFiles,
+} from "./customConfig";
 import { setCustomCommands } from "./slashCommands";
 import { LocalAIInlineCompletionProvider } from "./autocomplete";
 
@@ -94,6 +101,10 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("cvsuai.newChat", () => {
       ChatPanel.show(context);
       ChatPanel.current?.newChatFromCommand();
+    }),
+
+    vscode.commands.registerCommand("cvsuai.stopResponse", () => {
+      ChatPanel.current?.stopCurrentResponse();
     }),
 
     vscode.commands.registerCommand("cvsuai.refreshUI", () => {
@@ -285,6 +296,56 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.window.showInformationMessage(
         "CvSU-AI VSCode Chat: created .cvsuai/ — add skills in skills/, agents in agents/, project rules in instructions.md. They appear as /commands."
       );
+    }),
+
+    vscode.commands.registerCommand("cvsuai.runPromptFile", async () => {
+      await refreshCustom();
+      const prompts = getPromptFiles();
+      if (!prompts.length) {
+        vscode.window.showInformationMessage(
+          "CvSU-AI VSCode Chat: no .prompt.md files found in this workspace."
+        );
+        return;
+      }
+
+      const pick = await vscode.window.showQuickPick(
+        prompts.map((p) => ({ label: `/${p.name}`, description: p.description })),
+        { placeHolder: "Select a prompt file to run" }
+      );
+      if (!pick) return;
+
+      const args = await vscode.window.showInputBox({
+        prompt: `Optional arguments for ${pick.label}`,
+        value: "",
+      });
+      const text = args?.trim() ? `${pick.label} ${args.trim()}` : pick.label;
+      ChatPanel.show(context);
+      setTimeout(() => ChatPanel.current?.sendInitial(text), 400);
+    }),
+
+    vscode.commands.registerCommand("cvsuai.runAgentFile", async () => {
+      await refreshCustom();
+      const agents = getAgentFiles();
+      if (!agents.length) {
+        vscode.window.showInformationMessage(
+          "CvSU-AI VSCode Chat: no .agent.md files found in this workspace."
+        );
+        return;
+      }
+
+      const pick = await vscode.window.showQuickPick(
+        agents.map((p) => ({ label: `/${p.name}`, description: p.description })),
+        { placeHolder: "Select an agent file to run" }
+      );
+      if (!pick) return;
+
+      const args = await vscode.window.showInputBox({
+        prompt: `Task for ${pick.label}`,
+        value: "",
+      });
+      const text = args?.trim() ? `${pick.label} ${args.trim()}` : pick.label;
+      ChatPanel.show(context);
+      setTimeout(() => ChatPanel.current?.sendInitial(text), 400);
     }),
 
     vscode.commands.registerCommand("cvsuai.editKeybinding", async () => {

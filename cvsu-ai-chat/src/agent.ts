@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { ChatMessage, ToolCall, streamChatWithTools } from "./client";
-import { ToolContext, findTool, toolDefs } from "./tools";
+import { ToolContext, findTool, toolDefs, normalizeAllowedTools } from "./tools";
 
 const SYSTEM_PROMPT = `You are CVSU AI DEV, a coding agent embedded in VS Code.
 You can use tools to read AND MODIFY files in the user's workspace.
@@ -34,13 +34,15 @@ MANDATORY workflow for creating/adding code (e.g. "create a unit test"):
 Rules:
 - Pasting code in chat without calling a tool is a FAILURE — apply it.
 - Do not invent file contents — read existing files before modifying them.
+- For EXISTING files, prefer edit_file for targeted in-place changes. Use
+  write_file with overwrite:true only when replacing an entire file is intended.
 - The user's open file contents are already provided above; you do NOT need
   read_file for it. If the target test file's contents are ALSO provided above
   (look for "ALREADY EXISTS … contents are below"), you do NOT need read_file for
   it either — call append_to_file directly. Only call read_file for files whose
   contents are NOT already shown to you.
 
-Tools: read_file, list_files, search, write_file (overwrite-guarded),
+Tools: read_file, list_files, search, edit_file, write_file (overwrite-guarded),
 append_to_file, run_command.
 
 Execution rule:
@@ -75,7 +77,8 @@ export async function runAgent(
   signal: AbortSignal,
   contextText = "",
   /** Extra instructions from a custom agent or project instructions file. */
-  extraSystem = ""
+  extraSystem = "",
+  allowedTools?: string[]
 ): Promise<void> {
   const maxIters = vscode.workspace.getConfiguration("localai").get<number>("agent.maxIterations") ?? 8;
 
@@ -86,6 +89,7 @@ export async function runAgent(
   if (extraSystem) lead.push({ role: "system", content: extraSystem });
   if (contextText) lead.push({ role: "system", content: contextText });
   const messages: ChatMessage[] = [...lead, ...history];
+  const allowed = normalizeAllowedTools(allowedTools);
 
   // Loop detection: remember recent (tool,args) signatures so we can break out
   // when the model repeats the same call — usually because a path keeps failing.
@@ -105,7 +109,7 @@ export async function runAgent(
     const turn = await streamChatWithTools(
       secrets,
       messages,
-      toolDefs(),
+      toolDefs(allowed ? Array.from(allowed) : undefined),
       (delta) => events.onToken(delta),
       signal
     );
@@ -130,6 +134,14 @@ export async function runAgent(
         messages.push(assistantTurn);
         history.push(assistantTurn);
 
+        const toolName = syntheticCall.name.toLowerCase();
+        if (allowed && !allowed.has(toolName)) {
+          events.onStatus("");
+          events.onAssistantText(
+            `Tool blocked by prompt frontmatter: ${syntheticCall.name}. Allowed tools: ${Array.from(allowed).join(", ")}.`
+          );
+          return;
+        }
         const tool = findTool(syntheticCall.name);
         if (!tool) {
           events.onStatus("");
@@ -222,6 +234,11 @@ export async function runAgent(
       let result: string;
       const reReadPath =
         call.name === "read_file" ? String(call.arguments?.path ?? "") : "";
+      if (allowed && !allowed.has(call.name.toLowerCase())) {
+        result =
+          `Tool blocked by prompt frontmatter: ${call.name}. ` +
+          `Allowed tools: ${Array.from(allowed).join(", ")}.`;
+      } else
       if (reReadPath && readPaths.has(reReadPath)) {
         events.onStatus("");
         result =

@@ -1,4 +1,74 @@
-# CvSUAI
+## CvSU AI
+
+A Copilot/Claude-style AI chat panel and coding agent for your own **LocalAI** server.
+
+This repository is a fork of the original project and is still under active improvements.
+
+- **Chat** — streaming responses in a clean side panel.
+- **Context-aware** — automatically uses your selection → open file → workspace.
+- **Agent mode** — the assistant can read, search, and edit files in your open
+  workspace (file writes require confirmation).
+- **Apply buttons** — every code block has **Apply** (write it to a file) and **Copy**.
+- **Two ways to sign in** — paste an API key, or sign in via GitHub in the browser.
+
+---
+
+## Quick start (TL;DR)
+
+1. **Build and Install** the `.vsix` file (see below) and **reload** your IDE.
+2. Click the **LocalAI Chat Panel icon** in the Activity Bar (left strip).
+3. **Configure** — Click the ⚙️ Settings icon at the top of the chat panel to easily set your Model, Base URLs, and API key.
+4. **Ask anything.** Open a file and type — it auto-attaches the file/selection as context.
+5. **Want it to edit files?** Tick **Agent mode**, or type **`/fix`**, **`/test`**, **`/refactor`**.
+
+### IDE compatibility
+- Works in **VS Code** and most **VS Code-derived IDEs** that support standard VSIX extensions.
+- This includes **Antigravity IDE** and other forks that keep VS Code extension APIs.
+- Best compatibility path is **Install from VSIX** in the IDE's Extensions panel.
+- If a forked IDE uses OpenVSX, install from OpenVSX or install the same `.vsix` manually.
+
+---
+
+## Install
+
+To install the extension from source:
+
+1. Clone this repository and run `npm install`.
+2. Build the extension package: `npm run build`.
+3. Install the generated `.vsix` file:
+  - **Any compatible IDE UI (VS Code, Antigravity, forks):** Extensions panel → `…` (top-right) → **Install from VSIX…** → pick the file.
+  - **or CLI:** `code --install-extension localai-vscode-chat-<version>.vsix`
+
+### For maintainers — build & package
+
+```bash
+npm install
+npm run compile          # typecheck (tsc --noEmit)
+npm run build            # bundle to dist/extension.js
+npm run package          # produce localai-vscode-chat-<version>.vsix (via @vscode/vsce)
+```
+
+Press **F5** to run in the Extension Development Host.
+
+**Dev credentials:** create a `.env` in the extension root (see `.env.example`).
+It's loaded **only** in the Dev Host and is excluded from git and the `.vsix`, so
+your personal key never ships. Verify a package before sharing:
+
+```bash
+npx @vscode/vsce ls      # list files that will be in the .vsix — confirm no .env
+```
+
+### Code layout
+
+- `src/client.ts` — API client (fetch + SSE), credential resolution, auth headers.
+- `src/auth.ts` — Sign In/Out flows (API key + browser GitHub login).
+- `src/env.ts` — dev-only `.env` loader (Development mode + extension root).
+- `src/agent.ts` — agent loop (streamed model → tools → results → repeat).
+- `src/tools.ts` — workspace tools with read-only/mutating tags.
+- `src/chatPanel.ts` — webview chat panel and message bridge.
+- `media/chat.{css,js}` — chat front-end.
+
+
 
 A Copilot/Claude-style AI chat panel and coding agent for your own **LocalAI** server.
 
@@ -143,6 +213,20 @@ menu) and a body. **Skills** are read-only prompt templates; **agents** can read
 and edit files. Edits are picked up live. Your `/commands` appear right alongside
 the built-in ones.
 
+Copilot-style compatibility is also supported, so you can reuse existing prompt
+assets from `vscode-copilot-chat`-style workflows:
+- `*.prompt.md` files become runnable `/name` commands.
+- `*.agent.md` files become custom agent `/name` commands.
+- `SKILL.md` files are loaded as custom skill commands (folder name = command name).
+- `*.instructions.md`, `copilot-instructions.md`, and `AGENTS.md` are automatically
+  included as project instructions.
+
+For `mode: agent` prompt/agent files, optional frontmatter `tools:` is supported
+as an allow-list (for example: `tools: read_file,search,edit_file`).
+
+You can run prompt files directly via **CvSU-AI VSCode Chat: Run Prompt File (.prompt.md)**.
+You can run agent files directly via **CvSU-AI VSCode Chat: Run Agent File (.agent.md)**.
+
 ### Codebase search (RAG)
 Ask about your whole project, not just the open file:
 1. Set **`localai.rag.enabled`** to true.
@@ -211,6 +295,8 @@ It reads an existing test file and **appends** rather than overwriting it.
 | **CvSU-AI VSCode Chat: Compact Chat** | Summarize older messages on demand to free context. |
 | **CvSU-AI VSCode Chat: Switch Server / Local** | Toggle between the shared server and your local GPU. |
 | **CvSU-AI VSCode Chat: Set Up Custom Agents & Skills** | Scaffold a `.cvsuai/` folder. |
+| **CvSU-AI VSCode Chat: Run Prompt File (.prompt.md)** | Pick and execute a workspace prompt file command. |
+| **CvSU-AI VSCode Chat: Run Agent File (.agent.md)** | Pick and execute a workspace agent file command. |
 | **CvSU-AI VSCode Chat: Index Workspace for RAG** | Build the `/codebase` semantic index. |
 
 ## Settings
@@ -249,6 +335,7 @@ Note: there is intentionally **no** `apiKey` setting — keys live in SecretStor
 | `read_file` | read-only | Read a workspace file. |
 | `list_files` | read-only | List workspace files (excludes node_modules). |
 | `search` | read-only | Substring search across file contents. |
+| `edit_file` | **mutating** | Targeted in-place edits on existing files by replacing exact text. **Confirmation required.** |
 | `write_file` | **mutating** | Create a file. Overwrite-guarded: replacing an existing file requires reading it first. **Confirmation required.** |
 | `append_to_file` | **mutating** | Add to the end of an existing file (e.g. a new test) without rewriting it. **Confirmation required.** |
 

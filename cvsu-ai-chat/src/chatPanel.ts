@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { ChatMessage, streamChat, hasCredentials, getModel, listModels, summarize, SUMMARY_MAX_TOKENS } from "./client";
 import { runAgent } from "./agent";
-import { ToolContext, EXCLUDE_GLOB, resolveExisting } from "./tools";
+import { ToolContext, EXCLUDE_GLOB, resolveExisting, listToolNames } from "./tools";
 import { ensureCredentials, signIn } from "./auth";
 import { gatherContext } from "./context";
 import { parseSlash, allSlashCommands } from "./slashCommands";
@@ -442,15 +442,40 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     // Expand a /slash command into a full prompt. The user still SEES what they
     // typed; the model receives the engineered prompt.
     const slash = parseSlash(text);
+
+    // /stop is a local control command: abort active generation and skip model call.
+    if (slash?.command === "stop") {
+      this.abort?.abort();
+      this.view?.webview.postMessage({ type: "done" });
+      this.view?.webview.postMessage({ type: "systemNote", text: "Stopped current AI response." });
+      return;
+    }
+
+    // Fail fast on bad tool names from prompt/agent frontmatter, before we send
+    // anything to the model. This avoids confusing partial runs.
+    if (slash?.allowedTools?.length) {
+      const known = new Set(listToolNames().map((n) => n.toLowerCase()));
+      const unknown = slash.allowedTools.filter((n) => !known.has(n.toLowerCase()));
+      if (unknown.length > 0) {
+        this.view?.webview.postMessage({ type: "done" });
+        this.view?.webview.postMessage({
+          type: "error",
+          value:
+            `Unknown tool(s) in prompt frontmatter: ${unknown.join(", ")}. ` +
+            `Allowed names: ${Array.from(known).join(", ")}.`,
+        });
+        return;
+      }
+    }
     // Resolve any @file mentions into attached file contents.
     const mentioned = await this.resolveMentions(slash ? slash.prompt : text);
     const promptForModel = mentioned.text;
     // Agent decision:
-    //  - A slash command's own preference WINS (e.g. /explain is read-only and
-    //    works on the already-attached code, so it never tool-loops even if the
-    //    Agent-mode box is ticked; /fix always uses the agent to write files).
-    //  - Free-form messages follow the Agent-mode checkbox.
-    const useAgent = slash ? slash.prefersAgent : this.agentMode;
+    //  - Agent-mode checkbox always enables tools, even for style slash commands
+    //    like /caveman or /ponytail.
+    //  - Otherwise, slash commands use their own preference; free-form follows
+    //    the Agent-mode checkbox.
+    const useAgent = this.agentMode || Boolean(slash?.prefersAgent);
 
     // Gather editor/workspace context for this turn (selection > file > workspace).
     const ctx = await gatherContext(useAgent);
@@ -504,7 +529,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     this.abort = abort;
 
     if (useAgent) {
-      await this.runAgentTurn(abort.signal, turnContext, extraSystem, ctx.openFile);
+      await this.runAgentTurn(abort.signal, turnContext, extraSystem, ctx.openFile, slash?.allowedTools);
     } else {
       // Plain chat has no separate system slot for these, so fold them into context.
       const chatContext = extraSystem ? `${extraSystem}\n\n${turnContext}` : turnContext;
@@ -756,6 +781,13 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     });
   }
 
+  /** Command-palette stop: cancel any active generation. */
+  public stopCurrentResponse() {
+    this.abort?.abort();
+    this.view?.webview.postMessage({ type: "done" });
+    this.view?.webview.postMessage({ type: "systemNote", text: "Stopped current AI response." });
+  }
+
   /** Plain streaming chat (no tools). */
   private async runChatTurn(signal: AbortSignal, contextText: string) {
     // Inject per-turn context as a transient system message (not stored in history).
@@ -795,7 +827,8 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     signal: AbortSignal,
     contextText: string,
     extraSystem = "",
-    openFilePath?: string
+    openFilePath?: string,
+    allowedTools?: string[]
   ) {
     const toolCtx: ToolContext = {
       confirm: (summary, detail) => this.confirmWrite(summary, detail),
@@ -836,7 +869,8 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         toolCtx,
         signal,
         contextText,
-        extraSystem
+        extraSystem,
+        allowedTools
       );
       this.view?.webview.postMessage({
         type: "done",
@@ -990,7 +1024,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
       <div id="empty">
         <img class="empty-logo" src="${logoUri}" alt="LocalAI logo" />
         <h2>CVSU AI DEV</h2>
-        <p>Ask a question, or type <code>/</code> for commands. Enable Agent mode to edit files.</p>
+        <p>Ask anything about your code. Turn on Agent mode when you want edits applied.</p>
         <div id="signin-container" style="display:none; margin-top: 20px;">
           <button id="signin-btn" class="primary-btn" style="padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; background: var(--vscode-button-background); color: var(--vscode-button-foreground);">Sign In to LocalAI</button>
         </div>
@@ -999,24 +1033,28 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     <div id="composer">
       <div id="slash-menu" hidden></div>
       <div class="input-wrap">
-        <textarea id="input" rows="1" placeholder="Ask CVSU AI DEV…  (type / for commands)"></textarea>
+        <textarea id="input" rows="1" placeholder="Ask about your code"></textarea>
         <button id="send" title="Send (Enter)" aria-label="Send">➤</button>
         <button id="stop" title="Stop" aria-label="Stop" style="display:none">■</button>
       </div>
       <div id="row">
-        <label id="agentToggle" title="Let the assistant read, search, and edit workspace files">
-          <input type="checkbox" id="agentMode" /> <span>Agent mode</span>
-        </label>
-        <label id="approveToggle" title="Skip file-write confirmation prompts when Agent mode edits files">
-          <input type="checkbox" id="autoApproveWrites" /> <span>Auto-approve writes</span>
-        </label>
-        <label id="autopilotToggle" title="If a reply is interrupted/stopped, auto-compact old context then continue the response">
-          <input type="checkbox" id="autopilotMode" /> <span>Autopilot</span>
-        </label>
-        <span id="status"></span>
-        <select id="model-select" title="Model used for replies">
-          <option value="">model…</option>
-        </select>
+        <div class="composer-meta">
+          <label id="agentToggle" title="Let the assistant read, search, and edit workspace files">
+            <input type="checkbox" id="agentMode" /> <span>Agent mode</span>
+          </label>
+          <label id="approveToggle" title="Skip file-write confirmation prompts when Agent mode edits files">
+            <input type="checkbox" id="autoApproveWrites" /> <span>Auto-approve writes</span>
+          </label>
+          <label id="autopilotToggle" title="If a reply is interrupted/stopped, auto-compact old context then continue the response">
+            <input type="checkbox" id="autopilotMode" /> <span>Autopilot</span>
+          </label>
+        </div>
+        <div class="composer-side">
+          <span id="status"></span>
+          <select id="model-select" title="Model used for replies">
+            <option value="">Model</option>
+          </select>
+        </div>
       </div>
     </div>
   </div>

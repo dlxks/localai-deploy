@@ -17,6 +17,8 @@ export interface SlashCommand {
   buildPrompt: (arg: string) => string;
   /** Custom agents only: an extra system prompt defining the agent's behavior. */
   systemPrompt?: string;
+  /** Optional allow-list of tools for agent turns. */
+  allowedTools?: string[];
 }
 
 export const SLASH_COMMANDS: SlashCommand[] = [
@@ -92,6 +94,13 @@ export const SLASH_COMMANDS: SlashCommand[] = [
         : "Answer the user's question using the retrieved workspace code below.",
   },
   {
+    // stop: control command handled by chatPanel; no model call should happen.
+    name: "stop",
+    description: "Stop/cancel the current AI response",
+    prefersAgent: false,
+    buildPrompt: () => "",
+  },
+  {
     // caveman (github.com/JuliusBrussee/caveman): answer in terse "caveman" style
     // to cut output tokens (~75%) while keeping full technical accuracy.
     name: "caveman",
@@ -141,7 +150,14 @@ function question(arg: string): string {
 let customCommands: SlashCommand[] = [];
 
 export function setCustomCommands(
-  cmds: Array<{ name: string; description: string; body: string; isAgent: boolean }>
+  cmds: Array<{
+    name: string;
+    description: string;
+    body: string;
+    isAgent: boolean;
+    isPromptFile?: boolean;
+    allowedTools?: string[];
+  }>
 ): void {
   customCommands = cmds.map((c) => ({
     name: c.name,
@@ -149,11 +165,29 @@ export function setCustomCommands(
     prefersAgent: c.isAgent,
     // Agents: the body is their system prompt; the user's text is the task.
     // Skills: the body is a prompt template with $ARGUMENTS substituted.
-    buildPrompt: (arg: string) =>
-      c.isAgent
-        ? (arg || "Proceed with the user's request using the provided context.")
-        : c.body.replace(/\$ARGUMENTS/g, arg).trim(),
-    systemPrompt: c.isAgent ? c.body : undefined,
+    buildPrompt: (arg: string) => {
+      // Prompt files are user prompts (even when they prefer agent mode).
+      if (c.isPromptFile) {
+        return c.body.includes("$ARGUMENTS")
+          ? c.body.replace(/\$ARGUMENTS/g, arg).trim()
+          : arg
+          ? `${c.body.trim()}\n\nUser arguments: ${arg}`
+          : c.body.trim();
+      }
+
+      // Custom agents use systemPrompt as behavior and user text as task.
+      if (c.isAgent) {
+        return arg || "Proceed with the user's request using the provided context.";
+      }
+
+      return c.body.includes("$ARGUMENTS")
+        ? c.body.replace(/\$ARGUMENTS/g, arg).trim()
+        : arg
+        ? `${c.body.trim()}\n\nUser arguments: ${arg}`
+        : c.body.trim();
+    },
+    systemPrompt: c.isAgent && !c.isPromptFile ? c.body : undefined,
+    allowedTools: c.allowedTools,
   }));
 }
 
@@ -174,7 +208,13 @@ export function findSlashCommand(name: string): SlashCommand | undefined {
  */
 export function parseSlash(
   input: string
-): { prompt: string; prefersAgent: boolean; command: string; systemPrompt?: string } | null {
+): {
+  prompt: string;
+  prefersAgent: boolean;
+  command: string;
+  systemPrompt?: string;
+  allowedTools?: string[];
+} | null {
   const trimmed = input.trim();
   if (!trimmed.startsWith("/")) return null;
   const match = /^\/([\w-]+)\s*([\s\S]*)$/.exec(trimmed);
@@ -186,5 +226,6 @@ export function parseSlash(
     prefersAgent: cmd.prefersAgent,
     command: cmd.name,
     systemPrompt: cmd.systemPrompt,
+    allowedTools: cmd.allowedTools,
   };
 }

@@ -62,8 +62,21 @@
         "icon": "$(add)"
       },
       {
+        "command": "cvsuai.stopResponse",
+        "title": "CVSU AI DEV: Stop Current AI Response",
+        "icon": "$(debug-stop)"
+      },
+      {
         "command": "cvsuai.customConfig",
         "title": "CVSU AI DEV: Set Up Custom Agents & Skills (.cvsuai)"
+      },
+      {
+        "command": "cvsuai.runPromptFile",
+        "title": "CVSU AI DEV: Run Prompt File (.prompt.md)"
+      },
+      {
+        "command": "cvsuai.runAgentFile",
+        "title": "CVSU AI DEV: Run Agent File (.agent.md)"
       },
       {
         "command": "cvsuai.compactChat",
@@ -120,6 +133,15 @@
       "commandPalette": [
         {
           "command": "cvsuai.editKeybinding"
+        },
+        {
+          "command": "cvsuai.runPromptFile"
+        },
+        {
+          "command": "cvsuai.runAgentFile"
+        },
+        {
+          "command": "cvsuai.stopResponse"
         }
       ]
     },

@@ -426,6 +426,93 @@ const writeFile: AgentTool = {
   },
 };
 
+const editFile: AgentTool = {
+  mutating: true,
+  def: {
+    type: "function",
+    function: {
+      name: "edit_file",
+      description:
+        "Edit an EXISTING file by replacing text. By default, replaces the first exact match of oldText with newText. Set replaceAll:true to replace every exact match. Requires user approval.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "Workspace-relative file path" },
+          oldText: { type: "string", description: "Exact text to find" },
+          newText: { type: "string", description: "Replacement text" },
+          replaceAll: {
+            type: "boolean",
+            description: "If true, replace every exact match of oldText.",
+          },
+        },
+        required: ["path", "oldText", "newText"],
+      },
+    },
+  },
+  async run(args, ctx) {
+    const rel = String(args.path ?? "");
+    const oldText = String(args.oldText ?? "");
+    const newText = String(args.newText ?? "");
+    const replaceAll = args.replaceAll === true || String(args.replaceAll) === "true";
+
+    if (!rel) return "Error: 'path' is required.";
+    if (!oldText) return "Error: 'oldText' is required and cannot be empty.";
+
+    let uri: vscode.Uri;
+    try {
+      uri = await resolveExisting(rel);
+    } catch (e: any) {
+      return `Error: ${e?.message ?? String(e)}`;
+    }
+
+    let current: string;
+    try {
+      const st = await vscode.workspace.fs.stat(uri);
+      if (st.type === vscode.FileType.Directory) {
+        return `Error: '${rel}' is a directory, not a file.`;
+      }
+      current = Buffer.from(await vscode.workspace.fs.readFile(uri)).toString("utf8");
+    } catch {
+      return `Error: could not read "${rel}". Make sure the file exists before editing.`;
+    }
+
+    const occurrences = current.split(oldText).length - 1;
+    if (occurrences <= 0) {
+      return (
+        `Error: oldText was not found in ${rel}. ` +
+        `Call read_file first and copy the exact text, including spaces/newlines.`
+      );
+    }
+
+    if (!replaceAll && occurrences > 1) {
+      return (
+        `STOP: oldText appears ${occurrences} times in ${rel}. ` +
+        `Refine oldText to a unique match, or set replaceAll:true if replacing all is intended.`
+      );
+    }
+
+    const next = replaceAll
+      ? current.split(oldText).join(newText)
+      : current.replace(oldText, newText);
+
+    const ok = await ctx.confirm(
+      `Edit ${rel}?`,
+      `The agent wants to replace ${replaceAll ? "all" : "one"} occurrence` +
+        `${replaceAll ? "s" : ""} in ${rel}.\n` +
+        `Matches: ${occurrences}.\n` +
+        `Delta: ${next.length - current.length >= 0 ? "+" : ""}${next.length - current.length} characters.`
+    );
+    if (!ok) return `User denied editing ${rel}.`;
+
+    await vscode.workspace.fs.writeFile(uri, Buffer.from(next, "utf8"));
+    await reveal(uri);
+    return (
+      `Edited ${rel}: replaced ${replaceAll ? occurrences : 1} occurrence` +
+      `${replaceAll || occurrences === 1 ? "" : "s"}. The file is now open in the editor.`
+    );
+  },
+};
+
 const appendToFile: AgentTool = {
   mutating: true,
   def: {
@@ -630,15 +717,34 @@ export const TOOLS: AgentTool[] = [
   readFile,
   listFiles,
   searchText,
+  editFile,
   writeFile,
   appendToFile,
   runCommand,
 ];
 
-export function toolDefs(): ToolDef[] {
-  return TOOLS.map((t) => t.def);
+function normalizeToolName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+export function toolDefs(allowedNames?: string[]): ToolDef[] {
+  if (!allowedNames || allowedNames.length === 0) {
+    return TOOLS.map((t) => t.def);
+  }
+  const allow = new Set(allowedNames.map(normalizeToolName));
+  return TOOLS.filter((t) => allow.has(normalizeToolName(t.def.function.name))).map((t) => t.def);
 }
 
 export function findTool(name: string): AgentTool | undefined {
   return TOOLS.find((t) => t.def.function.name === name);
+}
+
+export function normalizeAllowedTools(allowedNames?: string[]): Set<string> | undefined {
+  if (!allowedNames || allowedNames.length === 0) return undefined;
+  const names = allowedNames.map(normalizeToolName).filter(Boolean);
+  return names.length ? new Set(names) : undefined;
+}
+
+export function listToolNames(): string[] {
+  return TOOLS.map((t) => t.def.function.name);
 }
