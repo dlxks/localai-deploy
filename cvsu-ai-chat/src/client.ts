@@ -332,6 +332,28 @@ function trimMessages(messages: ChatMessage[]): ChatMessage[] {
   return [...keptLead, ...keptRest];
 }
 
+/**
+ * Keep request shape valid across model switches: some templates reject any
+ * `system` message that is not at the very beginning. Normalize every request
+ * to one leading system message + remaining turns in original order.
+ */
+function normalizeMessages(messages: ChatMessage[]): ChatMessage[] {
+  const system = messages.filter((m) => m.role === "system");
+  const other = messages.filter((m) => m.role !== "system");
+
+  if (system.length === 0) return other;
+
+  const mergedSystem: ChatMessage = {
+    role: "system",
+    content: system
+      .map((m) => m.content ?? "")
+      .filter(Boolean)
+      .join("\n\n"),
+  };
+
+  return [mergedSystem, ...other];
+}
+
 /** Tokens reserved for the summary reply. Callers must size the input they send
  *  to summarize() so that (input + this + prompt overhead) fits the context
  *  window — otherwise the request is rejected with "exceeds context size". */
@@ -390,6 +412,8 @@ export async function streamChat(
   onToken: (delta: string) => void,
   signal: AbortSignal
 ): Promise<void> {
+  const model = getModel();
+  const prepared = trimMessages(normalizeMessages(messages));
   const res = await fetch(`${getBaseUrl()}/v1/chat/completions`, {
     method: "POST",
     headers: {
@@ -397,7 +421,7 @@ export async function streamChat(
       Origin: getBaseUrl(),
       ...(await authHeaders(secrets)),
     },
-    body: JSON.stringify(withMaxTokens({ model: getModel(), messages: trimMessages(messages), stream: true })),
+    body: JSON.stringify(withMaxTokens({ model, messages: prepared, stream: true })),
     signal,
   });
 
@@ -453,6 +477,8 @@ export async function chatWithTools(
   tools: ToolDef[],
   signal: AbortSignal
 ): Promise<ChatTurnResult> {
+  const model = getAgentModel();
+  const prepared = trimMessages(normalizeMessages(messages));
   const res = await fetch(`${getBaseUrl()}/v1/chat/completions`, {
     method: "POST",
     headers: {
@@ -461,8 +487,8 @@ export async function chatWithTools(
       ...(await authHeaders(secrets)),
     },
     body: JSON.stringify(withMaxTokens({
-      model: getAgentModel(),
-      messages: trimMessages(messages),
+      model,
+      messages: prepared,
       tools,
       tool_choice: "auto",
       stream: false,
@@ -495,6 +521,8 @@ export async function streamChatWithTools(
   onToken: (delta: string) => void,
   signal: AbortSignal
 ): Promise<ChatTurnResult> {
+  const model = getAgentModel();
+  const prepared = trimMessages(normalizeMessages(messages));
   const res = await fetch(`${getBaseUrl()}/v1/chat/completions`, {
     method: "POST",
     headers: {
@@ -502,7 +530,7 @@ export async function streamChatWithTools(
       Origin: getBaseUrl(),
       ...(await authHeaders(secrets)),
     },
-    body: JSON.stringify(withMaxTokens({ model: getAgentModel(), messages: trimMessages(messages), tools, tool_choice: "auto", stream: true })),
+    body: JSON.stringify(withMaxTokens({ model, messages: prepared, tools, tool_choice: "auto", stream: true })),
     signal,
   });
 
