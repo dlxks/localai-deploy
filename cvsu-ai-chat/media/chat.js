@@ -245,6 +245,28 @@
         .split("|")
         .map((c) => c.trim());
 
+    const listItemMatch = (line) => {
+      const m = /^(\s*)([-*+] |\d+\. )(.+)$/.exec(String(line || ""));
+      return m ? { marker: m[2].trim(), text: m[3] } : null;
+    };
+
+    const isCodeLikeLine = (line) => {
+      const s = String(line || "");
+      if (!s.trim()) return false;
+      return (
+        /[{};$]/.test(s) ||
+        /=>|::|->/.test(s) ||
+        /^\s*(class|function|public|private|protected|if|else|for|while|return|import|from|const|let|var|try|catch)\b/.test(s) ||
+        /^\s*[$@#]/.test(s)
+      );
+    };
+
+    const isLikelyCodeBlock = (lines) => {
+      if (!lines || lines.length < 3) return false;
+      const codey = lines.filter(isCodeLikeLine).length;
+      return codey >= Math.max(2, Math.floor(lines.length * 0.5));
+    };
+
     const renderInline = (text) => {
       let t = esc(text || "");
       t = t.replace(/`([^`]+)`/g, "<code>$1</code>");
@@ -256,6 +278,12 @@
       const lines = String(text || "").split("\n");
       const chunks = [];
       let i = 0;
+
+      const flushPara = (para) => {
+        if (!para.length) return;
+        chunks.push("<p>" + para.map(renderInline).join("<br>") + "</p>");
+      };
+
       while (i < lines.length) {
         const header = lines[i];
         const sep = lines[i + 1];
@@ -281,7 +309,27 @@
               .map((r) => "<tr>" + headers.map((_, idx) => "<td>" + renderInline(r[idx] || "") + "</td>").join("") + "</tr>")
               .join("") +
             "</tbody>";
-          chunks.push('<div class="md-table-wrap"><table class="md-table">' + headHtml + bodyHtml + "</table></div>");
+          chunks.push('<div class="gen-block md-table-wrap"><table class="md-table">' + headHtml + bodyHtml + "</table></div>");
+          continue;
+        }
+
+        const li = listItemMatch(lines[i]);
+        if (li) {
+          const items = [];
+          let ordered = /^\d+\./.test(li.marker);
+          while (i < lines.length) {
+            const cur = listItemMatch(lines[i]);
+            if (!cur) break;
+            ordered = ordered || /^\d+\./.test(cur.marker);
+            items.push(cur.text);
+            i++;
+          }
+          const tag = ordered ? "ol" : "ul";
+          chunks.push(
+            '<div class="gen-block md-list-wrap"><' + tag + ' class="md-list">' +
+              items.map((item) => '<li>' + renderInline(item) + "</li>").join("") +
+              "</" + tag + "></div>"
+          );
           continue;
         }
 
@@ -294,11 +342,15 @@
             break;
           }
           if (cur.includes("|") && next && isTableSep(next)) break;
+          if (listItemMatch(cur)) break;
           para.push(cur);
           i++;
         }
-        if (para.length) {
-          chunks.push("<p>" + para.map(renderInline).join("<br>") + "</p>");
+        if (isLikelyCodeBlock(para)) {
+          const code = para.join("\n");
+          chunks.push('<div class="code-block auto-code-block"><pre><code>' + highlight(code) + "</code></pre></div>");
+        } else {
+          flushPara(para);
         }
       }
       return chunks.join("");
@@ -321,8 +373,9 @@
           const code = p.value.replace(/\n$/, "");
           const enc = b64encode(code);
           const langLabel = p.lang ? esc(p.lang) : "code";
+          const kind = /^(json|json5|jsonc)$/i.test(p.lang) ? " json-block" : "";
           return (
-            '<div class="code-block">' +
+            '<div class="code-block' + kind + '">' +
             '<div class="code-toolbar">' +
             '<span class="code-lang">' + langLabel + "</span>" +
             '<span class="code-actions">' +
@@ -474,9 +527,9 @@
         currentBubble = addMessage("assistant", "");
       }
       currentBubble.classList.remove("typing");
-      currentBubble.classList.add("cursor");
+      currentBubble.classList.add("cursor", "streaming-plain");
       currentRaw += m.value;
-      currentBubble.innerHTML = renderMarkdown(currentRaw);
+      currentBubble.textContent = currentRaw;
       scrollToBottom();
     } else if (m.type === "status") {
       statusEl.textContent = m.value || "";
@@ -495,9 +548,9 @@
       if (currentBubble) {
         if (m.value && m.value !== currentRaw) {
           currentRaw = m.value;
-          currentBubble.innerHTML = renderMarkdown(currentRaw);
         }
-        currentBubble.classList.remove("cursor", "typing");
+        if (currentRaw.trim()) currentBubble.innerHTML = renderMarkdown(currentRaw);
+        currentBubble.classList.remove("cursor", "typing", "streaming-plain");
         if (!currentRaw.trim()) currentBubble.closest(".msg")?.remove();
       } else if (m.value) {
         addMessage("assistant", m.value);
@@ -506,7 +559,10 @@
       scrollToBottom();
     } else if (m.type === "done") {
       statusEl.textContent = "";
-      if (currentBubble) currentBubble.classList.remove("cursor", "typing");
+      if (currentBubble) {
+        if (currentRaw.trim()) currentBubble.innerHTML = renderMarkdown(currentRaw);
+        currentBubble.classList.remove("cursor", "typing", "streaming-plain");
+      }
       // Attach a small stats footer (tokens, tok/s) to the last assistant reply.
       if (m.stats) attachStats(m.stats);
       currentBubble = null;

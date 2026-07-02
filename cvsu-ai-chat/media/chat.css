@@ -121,11 +121,14 @@ html, body {
 }
 .msg.assistant .avatar {
   background: transparent;
-  color: var(--vscode-foreground);
-  border: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.25));
-  border-radius: 50%;
+  color: transparent;
+  border: none;
+  border-radius: 0;
   background-image: url('cvsu-logo.png'); /* Assume logo can fit or just use text */
-  background-size: cover;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  box-shadow: none;
 }
 
 .msg .bubble {
@@ -146,6 +149,18 @@ html, body {
 }
 .msg .bubble p { margin: 0 0 10px; }
 .msg .bubble p:last-child { margin-bottom: 0; }
+
+.msg .bubble .gen-block {
+  margin: 10px 0;
+}
+.msg .bubble .gen-block:first-child { margin-top: 0; }
+.msg .bubble .gen-block:last-child { margin-bottom: 0; }
+
+.msg .bubble .gen-para {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
 
 .msg .bubble pre {
   background: var(--vscode-editorWidget-background, rgba(128,128,128,0.08));
@@ -228,6 +243,25 @@ html, body {
   border-radius: 8px;
   background: var(--vscode-editorWidget-background, rgba(128,128,128,0.08));
 }
+.md-list-wrap {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--vscode-editorWidget-background) 58%, transparent);
+}
+.md-list {
+  margin: 0;
+  padding-left: 20px;
+}
+.md-list li + li {
+  margin-top: 5px;
+}
+.code-block.json-block .code-toolbar {
+  border-bottom-color: color-mix(in srgb, var(--vscode-focusBorder) 45%, var(--vscode-panel-border));
+}
+.auto-code-block pre {
+  border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,0.18));
+  border-radius: 8px;
+}
 .md-table {
   width: 100%;
   border-collapse: collapse;
@@ -255,6 +289,10 @@ html, body {
   animation: blink 1s steps(1) infinite;
   opacity: 0.6;
   margin-left: 1px;
+}
+.bubble.streaming-plain {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 @keyframes blink { 50% { opacity: 0; } }
 
